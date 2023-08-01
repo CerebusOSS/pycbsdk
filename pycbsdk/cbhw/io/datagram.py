@@ -4,7 +4,7 @@ import queue
 import socket
 import struct
 import threading
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple
 
 from pycbsdk.cbhw.packet.factory import CBPacketFactory
 from .base import CerebusCommInterface
@@ -71,7 +71,7 @@ class CerebusDatagramProtocol(asyncio.DatagramProtocol):
         except asyncio.InvalidStateError:
             logger.warning("Connection future already set.")
 
-    def _process_datagram(self, data: bytes) -> List[int, int, int, bytes]:
+    def _process_datagram(self, data: bytes) -> list[int, int, int, bytes]:
         """
         :param data:
         :return: a list of (chid, pkt_type, pkt_data) tuples

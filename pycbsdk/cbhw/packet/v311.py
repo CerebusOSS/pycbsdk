@@ -1,5 +1,4 @@
 from ctypes import *
-from typing import List
 import struct
 from .common import (
     CBPacketType,
@@ -133,7 +132,7 @@ class CBPacketDIn(CBPacketVarDataNDArray):
         return self._array[: self.header.dlen]
 
     @data.setter
-    def data(self, value: List[int]):
+    def data(self, value: list[int]):
         # It would be nice to use the array memory directly, but it's not a c_uint32 array,
         #   so we have to copy its elements (*value).
         assert len(value) <= self.max_elements
