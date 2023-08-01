@@ -1,3 +1,5 @@
+[![PyPI version](https://badge.fury.io/py/pycbsdk.svg)](https://badge.fury.io/py/pycbsdk)
+
 # pycbsdk
 
 Pure Python package for communicating with Blackrock Cerebus devices
