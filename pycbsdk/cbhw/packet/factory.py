@@ -1,5 +1,5 @@
 from ctypes import *
-from typing import Type
+from typing import Type, List
 from .. import config
 from .common import CBPacketType, CBChannelType, CBSpecialChan
 
@@ -22,7 +22,7 @@ class CBPacketFactory:
         register_pktcls_with_factory(self)
 
     def register_pktcls_by_header_types(
-        self, pkt_types: list[CBPacketType], pkt_class: Type[Structure]
+        self, pkt_types: List[CBPacketType], pkt_class: Type[Structure]
     ):
         """
         Associate one-or-more config packet header.types with a Packet Class.

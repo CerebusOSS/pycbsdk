@@ -83,11 +83,11 @@ class CBPacketSpike(CBPacketVarDataNDArray):
         return 128
 
     @property
-    def fPattern(self) -> list[int]:
+    def fPattern(self) -> typing.List[int]:
         return list(self._fPattern)
 
     @fPattern.setter
-    def fPattern(self, value: list[int]):
+    def fPattern(self, value: typing.List[int]):
         self._fPattern = (self._fPattern._type_ * 3)(*value)
 
     # header type is reused as sorted-unit identifier.
@@ -155,7 +155,7 @@ class CBPacketGeneric(CBPacketVarLen):
         return self._array[: self.header.dlen]
 
     @data.setter
-    def data(self, value: list[int]):
+    def data(self, value: typing.List[int]):
         # It would be nice to use the array memory directly, but it's not a c_uint32 array,
         #   so we have to copy its elements (*value).
         assert len(value) <= self.max_elements
@@ -516,7 +516,7 @@ class CBPacketVideoTrack(CBPacketVarDataNDArray):
         return CBPacketType.VIDEOTRACKSET
 
     @property
-    def sizes(self) -> list[int]:
+    def sizes(self) -> typing.Tuple[typing.Any]:
         # Convert coords from uint16 to half as many uint32
         # TODO: Use numpy from buffer
         return struct.unpack(
@@ -525,7 +525,7 @@ class CBPacketVideoTrack(CBPacketVarDataNDArray):
         )
 
     @sizes.setter
-    def sizes(self, insizes: list[int]):
+    def sizes(self, insizes: typing.List[int]):
         n_elems = len(insizes)
         assert n_elems <= (self.max_elements // 2)
         # TODO: Use numpy buffer
