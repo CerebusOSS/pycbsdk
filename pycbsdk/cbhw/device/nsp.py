@@ -628,7 +628,9 @@ class NSPDevice(DeviceInterface):
         #     pkt.fname = self._config['nplay'].fname
         self._send_packet(pkt)
 
-    def set_runlevel(self, run_level: CBRunLevel, timeout: Optional[float] = None) -> CBError:
+    def set_runlevel(
+        self, run_level: CBRunLevel, timeout: Optional[float] = None
+    ) -> CBError:
         """
         cbPKT_SYSINFO sysinfo;
         sysinfo.type     = cbPKTTYPE_SYSSETRUNLEV;
@@ -729,8 +731,10 @@ class NSPDevice(DeviceInterface):
 
         if err:
             if err == CBError.NOREPLY:
-                logger.error("Device did not reply to startup sequence. This could be caused by a network problem "
-                             "or by a protocol mismatch.")
+                logger.error(
+                    "Device did not reply to startup sequence. This could be caused by a network problem "
+                    "or by a protocol mismatch."
+                )
             else:
                 logger.error(f"Error received during startup sequence: {err}")
             self.disconnect()

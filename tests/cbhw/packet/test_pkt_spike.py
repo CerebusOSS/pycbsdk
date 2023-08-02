@@ -47,7 +47,6 @@ def test_pkt_spike_init_data_nowave():
 
 
 def test_pkt_spike_init_data_withwave():
-
     fPattern = struct.pack("<3f", 1.0, 2.0, 3.0)
     nPeak = struct.pack("<H", 1)
     nValley = struct.pack("<H", 2)

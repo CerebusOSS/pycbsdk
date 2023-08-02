@@ -16,13 +16,15 @@ class Params:
      but I'm not a complete masochist so I'll leverage Python's property functionality for this prototype.)
     """
 
-    def __init__(self,
-                 inst_addr: str = "",
-                 inst_port: int = 51002,
-                 client_addr: str = "",
-                 client_port: int = 51002,
-                 recv_bufsize: Optional[int] = None,
-                 protocol: str = "4.1"):
+    def __init__(
+        self,
+        inst_addr: str = "",
+        inst_port: int = 51002,
+        client_addr: str = "",
+        client_port: int = 51002,
+        recv_bufsize: Optional[int] = None,
+        protocol: str = "4.1",
+    ):
         if client_addr == "":
             # We need to specify the machine's network adapter IP address, depending on the platform.
             if sys.platform.lower() == "win32":
@@ -79,13 +81,19 @@ class Params:
         self._inst_port = inst_port
         self._client_addr = client_addr
         self._client_port = client_port
-        self._recv_bufsize = recv_bufsize if recv_bufsize is not None else (8 if sys.platform == "win32" else 6) * 1024 * 1024
+        self._recv_bufsize = (
+            recv_bufsize
+            if recv_bufsize is not None
+            else (8 if sys.platform == "win32" else 6) * 1024 * 1024
+        )
         self._protocol = protocol
 
     def __str__(self):
-        return f"From Adapter {self._client_addr}:{self._client_port}\n" \
-               f"To Device {self._inst_addr}:{self._inst_port}\n" \
-               f"Using Protocol {self._protocol} and socket buffer size {self._recv_bufsize}"
+        return (
+            f"From Adapter {self._client_addr}:{self._client_port}\n"
+            f"To Device {self._inst_addr}:{self._inst_port}\n"
+            f"Using Protocol {self._protocol} and socket buffer size {self._recv_bufsize}"
+        )
 
     @property
     def inst_addr(self) -> str:

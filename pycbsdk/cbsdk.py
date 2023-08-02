@@ -41,7 +41,14 @@ def create_params(
     recv_bufsize: Optional[int] = None,
     protocol: str = "4.1",
 ) -> Params:
-    params_obj = Params(inst_addr=inst_addr, inst_port=inst_port, client_addr=client_addr, client_port=client_port, recv_bufsize=recv_bufsize, protocol=protocol)
+    params_obj = Params(
+        inst_addr=inst_addr,
+        inst_port=inst_port,
+        client_addr=client_addr,
+        client_port=client_port,
+        recv_bufsize=recv_bufsize,
+        protocol=protocol,
+    )
 
     return params_obj
 
