@@ -1,7 +1,12 @@
 from typing import Optional
 from collections.abc import Callable
+import sys
+import logging
+
+import ifaddr
 
 from .cbhw.device.nsp import *
+from .misc.net import ping
 from .cbhw.params import Params
 from .cbhw.packet.common import CBPacketType, CBChannelType
 
@@ -42,6 +47,37 @@ def create_params(
     protocol: str = "4.1",
 ) -> Params:
     params_obj = Params()
+    if sys.platform == 'win32':
+        if client_addr == "":
+            for adapter in ifaddr.get_adapters():
+                for ip in adapter.ips:
+                    if ip.is_IPv4 and ip.ip.startswith("192.168.137"):
+                        client_addr = ip.ip
+                        break
+                if client_addr != "":
+                    logging.debug(f"Using adapter found with ip {client_addr}")
+                    break
+            if client_addr == "":
+                raise ValueError("client_addr: Unable to find adapter with ip in expected Cerebus subnet. "
+                                 "Please specify client_addr argument. If using nPlayServer on this machine, "
+                                 "you may use '127.0.0.1'")
+        if inst_addr == "":
+            logging.warning("On Windows `inst_addr` must be set to the IP address of the device."
+                            "We are attempting to find it for you...")
+            if client_addr == "127.0.0.1":
+                inst_addr = "127.0.0.1"
+            else:
+                # Search known device IP addresses.
+                for _term in ["200", "201", "128"]:
+                    _test_addr = "192.168.137." + _term
+                    if ping(_test_addr):
+                        inst_addr = _test_addr
+                        break
+                if inst_addr == "":
+                    raise ValueError("inst_addr: Unable to find device at known addresses. "
+                                     "Please specify inst_addr argument.")
+                logging.warning(f"Using inst_addr={inst_addr}.")
+
     params_obj.inst_addr = inst_addr
     params_obj.inst_port = inst_port
     params_obj.client_addr = client_addr
