@@ -157,20 +157,22 @@ def main():
         "-i",
         type=str,
         default="",
-        help="ipv4 address to send control packets. Can use subnet. "
-        "Will broadcast if not on Cerebus Subnet."
-        "Use 127.0.0.1 if using with nPlayServer in non-bcast.",
+        help="ipv4 address of device. pycbsdk will send control packets to this address. Subnet OK. "
+        "Use 127.0.0.1 for use with nPlayServer (non-bcast). "
+        "The default is 0.0.0.0 (IPADDR_ANY) on Mac and Linux, or 192.168.137.255 on Windows"
+        ,
     )
-    parser.add_argument("--inst_port", type=int, default=51001)
+    parser.add_argument("--inst_port", type=int, default=51002, help="Network port to send control packets."
+                                                                     "Use 51002 for Gemini and 51001 for Legacy NSP.")
     parser.add_argument(
         "--client_addr",
         "-c",
         type=str,
         default="",
-        help="ipv4 address of the adapter we will receive packets on. "
+        help="ipv4 address of this machine's network adapter we will receive packets on. "
         "Defaults to INADDR_ANY. If address is provided, assumes Cerebus Subnet.",
     )
-    parser.add_argument("--client_port", "-p", type=int, default=51002)
+    parser.add_argument("--client_port", "-p", type=int, default=51002, help="Network port to receive packets. This should always be 51002.")
     parser.add_argument(
         "--recv_bufsize",
         "-b",
@@ -178,8 +180,8 @@ def main():
         help=f"UDP socket recv buffer size. "
         f"Default: {(8 if sys.platform == 'win32' else 6) * 1024 * 1024}.",
     )
-    parser.add_argument("--protocol", type=str, default="4.1")
-    parser.add_argument("--skip_startup", action="store_true")
+    parser.add_argument("--protocol", type=str, default="4.1", help="Protocol Version. 3.11, 4.0, or 4.1 supported.")
+    parser.add_argument("--skip_startup", action="store_true", help="Skip the initial handshake as well as the attempt to set the device to RUNNING.")
     parser.add_argument(
         "--debug",
         "-d",
