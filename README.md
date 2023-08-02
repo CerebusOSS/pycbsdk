@@ -19,8 +19,8 @@ from pycbsdk import cbsdk
 
 
 params_obj = cbsdk.create_params()
-nsp_obj = cbsdk.get_device(params_obj)
-err = cbsdk.connect(nsp_obj)
+nsp_obj = cbsdk.get_device(params_obj)  # NSPDevice instance. This will be the first argument to most API calls. 
+err = cbsdk.connect(nsp_obj)  # Bind sockets, change device run state, and get device config.
 config = cbsdk.get_config(nsp_obj)
 print(config)
 ```
@@ -37,6 +37,8 @@ However, it's pretty useful as is! And so far it has been good-enough for some q
 
 ## Design
 
+Upon initialization, the `NSPDevice` instance configures its sockets (but no connection yet), it allocates memory for its mirror of the device state, and it registers callbacks to monitor config state.
+
 When the connection to the device is established, two threads are created and started:
 * `CerebusDatagramThread`
   * Retrieves datagrams using `asyncio`
@@ -47,11 +49,13 @@ When the connection to the device is established, two threads are created and st
   * Updates device state (e.g., mirrors device time)
   * Calls registered callbacks depending on the packet type.
 
-The device also registers some of its own internal callbacks to monitor config state.
+`connect()` has `startup_sequence=True` by default. This will cause the SDK to attempt to put the device into a running state. Otherwise, it'll stay in its original run state.
 
-The client can use API functions to:
-* Get / Set config -- these might simply grab the internal state or they might warrant a roundtrip communication to the device.
-  * The latter may hold back the return value until the reply packet has been received and can therefore be slow. Try to call `get_config` with `force_refresh=True` sparingly.
+After the connection is established, the client can use API functions to:
+* Get / Set config
+  * `set_config` and `set_channel_config` do not do anything yet
+  * `set_channel_spk_config` and `set_channel_config_by_packet` do things and are blocking.
+  * `get_config` is non-blocking by default and will simply read the local mirror of the config. However, if `force_refresh=True` is passed as a kwarg, then this function will block and wait for a reply from the device. Use this sparingly.
 * Register a callback to receive data as soon as it appears on the handler thread.
   
 This and more should appear in the documentation at some point in the future...
@@ -59,6 +63,9 @@ This and more should appear in the documentation at some point in the future...
 ## Limitations
 
 * This library takes exclusive control over the UDP socket on port 51002 and thus cannot be used with Central, nor any other instance of `pycbsdk`. You only get one instance of `pycbsdk` _or_ Central per machine.
+  * [CereLink](https://github.com/CerebusOSS/CereLink)'s cerebus.cbpy uses shared memory and therefore can work in parallel to Central or other cbpy instances.
 * The API is still very sparse and limited in functionality.
 * For now, Python still has the GIL. This means that despite using threading, if your callback functions are slow and hold up the PacketHandlerThread, this could hold up datagram retrieval and ultimately cause packets to be dropped.
-  * A possible solution is for your callbacks to simply enqueue the data for a longer-running process to handle.
+  * Callbacks may enqueue the data for a longer-running `multiprocessing` process to handle.
+  * Switch to [No GIL Python](https://peps.python.org/pep-0703/) as soon as it is available.
+  * Use pycbsdk to prototype an application in a language that uses real parallelism.
