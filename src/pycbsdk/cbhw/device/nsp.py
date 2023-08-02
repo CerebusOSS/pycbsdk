@@ -39,7 +39,8 @@ import time
 # other .packet.{submodules} are OK.
 from pycbsdk.cbhw.device.base import DeviceInterface
 from pycbsdk.cbhw.handler import PacketHandlerThread
-from pycbsdk.cbhw.io.datagram import CerebusDatagramThread
+from ..io.datagram import CerebusDatagramThread
+from ..io.shmem import CerebusShmemThread, check_cerebus_shmem
 from pycbsdk.cbhw.packet.common import (
     CBChannelType,
     CBPacketType,
@@ -1139,13 +1140,18 @@ class NSPDevice(DeviceInterface):
         self._receiver_queue = queue.SimpleQueue()
 
         self._pkt_handler_thread = PacketHandlerThread(self._receiver_queue, self)
-        self._io_thread = CerebusDatagramThread(
-            self._receiver_queue,
-            self._local_addr,
-            self._device_addr,
-            self._params.protocol,
-            self._params.recv_bufsize,
-        )
+
+        h_shm_mutex = check_cerebus_shmem()
+        if h_shm_mutex != 0:
+            self._io_thread = CerebusShmemThread(self._receiver_queue, self._params.protocol)
+        else:
+            self._io_thread = CerebusDatagramThread(
+                self._receiver_queue,
+                self._local_addr,
+                self._device_addr,
+                self._params.protocol,
+                self._params.recv_bufsize,
+            )
 
         self._pkt_handler_thread.start()
         self._io_thread.start()
