@@ -7,6 +7,9 @@ def ping(host: str) -> bool:
     if "mac" in p:
         n = "-c"
         succ_str = "1 packets received"
+    elif "linux" in p:
+        n = "-c"
+        succ_str = "0% packet loss"
     else:
         n = "-n"
         succ_str = f"Reply from {host}"
