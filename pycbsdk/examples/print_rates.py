@@ -82,7 +82,10 @@ def run(skip_startup: bool = False, **params_kwargs):
     """
     params_obj = cbsdk.create_params(**params_kwargs)
     nsp_obj = cbsdk.get_device(params_obj)
-    _ = cbsdk.connect(nsp_obj, startup_sequence=not skip_startup)
+    run_level = cbsdk.connect(nsp_obj, startup_sequence=not skip_startup)
+    if not run_level:
+        logger.error(f"Could not connect to device. Check params and try again: \n{params_obj}.")
+        return
     config = cbsdk.get_config(nsp_obj)
 
     # Check which channels have spiking enabled and what kind of thresholding they are using.
@@ -159,7 +162,7 @@ def main():
         default="",
         help="ipv4 address of device. pycbsdk will send control packets to this address. Subnet OK. "
         "Use 127.0.0.1 for use with nPlayServer (non-bcast). "
-        "The default is 0.0.0.0 (IPADDR_ANY) on Mac and Linux, or 192.168.137.255 on Windows"
+        "The default is 0.0.0.0 (IPADDR_ANY) on Mac and Linux. On Windows, known IPs will be searched."
         ,
     )
     parser.add_argument("--inst_port", type=int, default=51002, help="Network port to send control packets."

@@ -19,6 +19,11 @@ class Params:
         self._recv_bufsize = (8 if sys.platform == "win32" else 6) * 1024 * 1024
         self._protocol = "4.1"
 
+    def __str__(self):
+        return f"From Adapter {self._client_addr}:{self._client_port}\n" \
+               f"To Device {self._inst_addr}:{self._inst_port}\n" \
+               f"Using Protocol {self._protocol} and socket buffer size {self._recv_bufsize}"
+
     @property
     def inst_addr(self) -> str:
         return self._inst_addr

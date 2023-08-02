@@ -47,6 +47,7 @@ from pycbsdk.cbhw.packet.common import (
     CBSpecialChan,
 )
 from pycbsdk.cbhw.params import Params
+from pycbsdk.cbhw.consts import CBError
 
 
 __all__ = ["SpikeEvent", "NSPDevice", "CBRunLevel"]
@@ -627,7 +628,7 @@ class NSPDevice(DeviceInterface):
         #     pkt.fname = self._config['nplay'].fname
         self._send_packet(pkt)
 
-    def set_runlevel(self, run_level: CBRunLevel, timeout: Optional[float] = None):
+    def set_runlevel(self, run_level: CBRunLevel, timeout: Optional[float] = None) -> CBError:
         """
         cbPKT_SYSINFO sysinfo;
         sysinfo.type     = cbPKTTYPE_SYSSETRUNLEV;
@@ -647,12 +648,16 @@ class NSPDevice(DeviceInterface):
         else:
             event = self._config_events["sysrep"]
         logger.debug(f"Attempting to set runlevel to {run_level}")
-        if not self._send_packet(pkt, event=event, timeout=timeout):
-            logger.warning(f"Did not receive SYSREPRUNLEV in expected timeout.")
+        succ = self._send_packet(pkt, event=event, timeout=timeout)
+        if not succ:
+            logger.warning("Did not receive SYSREPRUNLEV in expected timeout.")
+            return CBError.NOREPLY
+        else:
+            return CBError.NONE
 
     def get_runlevel(self, force_refresh=False) -> CBRunLevel:
         if force_refresh:
-            self.set_runlevel(CBRunLevel.RUNNING, timeout=0.5)
+            err = self.set_runlevel(CBRunLevel.RUNNING, timeout=0.5)
         return self._config["runlevel"]
 
     def set_transport(
@@ -709,12 +714,28 @@ class NSPDevice(DeviceInterface):
         # _io_thread.start() returns immediately but takes a few moments until its send_q is created.
         time.sleep(0.5)
 
+        err = CBError.NONE
+        runlevel = 0
+
         # Startup sequence runs in a short-lived async chain.
         #  It relies on both the sender and receiver working.
         if startup_sequence:
-            self._startup_sequence()
+            err = self._startup_sequence()
 
-        return self.get_runlevel(force_refresh=not startup_sequence)
+        if not err:
+            runlevel = self.get_runlevel(force_refresh=not startup_sequence)
+            if not runlevel:
+                err = CBError.UNDEFINED
+
+        if err:
+            if err == CBError.NOREPLY:
+                logger.error("Device did not reply to startup sequence. This could be caused by a network problem "
+                             "or by a protocol mismatch.")
+            else:
+                logger.error(f"Error received during startup sequence: {err}")
+            self.disconnect()
+
+        return runlevel
 
     def disconnect(self):
         # TODO: Terminate IO
@@ -729,14 +750,16 @@ class NSPDevice(DeviceInterface):
 
         logger.info("Disconnected successfully.")
 
-    def _startup_sequence(self):
-        self.set_runlevel(CBRunLevel.RUNNING, timeout=0.45)
+    def _startup_sequence(self) -> CBError:
+        err = self.set_runlevel(CBRunLevel.RUNNING, timeout=0.45)
+        if err != CBError.NONE:
+            return err
 
         if self._config["runlevel"] != CBRunLevel.RUNNING:
             # After a cold boot, the system is probably in runlevel 10 (startup)
             # Central does not attempt to reset until 500 msec after the initial runlevel check.
             # We will receive 2 runlevel packets. 20 to acknowledge the hard reset, the 30 when it's in standby.
-            self.set_runlevel(
+            err = self.set_runlevel(
                 CBRunLevel.HARDRESET, timeout=0.45
             )  # Doesn't return until standby is received.
 
@@ -749,9 +772,8 @@ class NSPDevice(DeviceInterface):
         if self._config["runlevel"] != CBRunLevel.RUNNING:
             # Central waits a full second between the reqconfigall and reset
             # We will receive 2 runlevel packets. 40 to acknowledge the reset, and 50 when it's running.
-            self.set_runlevel(
-                CBRunLevel.RESET
-            )  # Doesn't return until RUNNING is received.
+            err = self.set_runlevel(CBRunLevel.RESET)
+            # Note: no timeout! Will block until RUNNING is received.
 
             # time.sleep(0.1)  # Give it enough time to finish starting up.
 
@@ -767,6 +789,8 @@ class NSPDevice(DeviceInterface):
             self.set_nplay_state(val=0, mode=CBNPlayMode.SINGLE, speed=0)
             time.sleep(0.1)
             # set unpause
+
+        return CBError.NONE
 
     def _send_packet(
         self, pkt, event: Optional[threading.Event] = None, timeout=0.005
