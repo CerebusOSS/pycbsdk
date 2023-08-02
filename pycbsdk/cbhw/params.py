@@ -36,32 +36,43 @@ class Params:
                         logging.debug(f"Using adapter found with ip {client_addr}")
                         break
                 if client_addr == "":
-                    raise ValueError("client_addr: Unable to find adapter with ip in expected Cerebus subnet. "
-                                     "Please specify client_addr argument. If using nPlayServer on this machine, "
-                                     "you may use '127.0.0.1'")
-            elif sys.platform.lower() == "linux":
-                # On Linux, IPADDR_ANY sort of works, but many packets are lost. We can however use a netmask.
-                client_addr = "192.168.137.255"
+                    raise ValueError(
+                        "client_addr: Unable to find adapter with ip in expected Cerebus subnet. "
+                        "Please specify client_addr argument. If using nPlayServer on this machine, "
+                        "you must specify '127.0.0.1'"
+                    )
             else:
-                # On Macs, we can use a netmask of 255.255.255.255, or leave it blank which defaults to 0.0.0.0
-                #  which is a synonym for IPADDR_ANY. This seems to work well.
-                pass
+                # On UNIX (Mac and Linux), it is acceptable to bind to IPADDR_ANY, which is the default when
+                #  any empty string is provided.
+                #  Note: CereLink defaults to 192.168.137.255 on Linux and 255.255.255.255 on Mac.
+                logging.info(
+                    "No client_addr provided. Binding to IPADDR_ANY. "
+                    "Please consider specifying client_addr to avoid collisions in multi-adapter settings."
+                )
         if inst_addr == "":
             # We need to specify the instrument IP address, depending on the platform.
             if client_addr == "127.0.0.1":
-                logging.info("Since local adapter is localhost, we will assume instrument is localhost too.")
+                logging.info(
+                    "Local adapter specified as localhost; assuming instrument is localhost too."
+                )
                 inst_addr = "127.0.0.1"
             else:
-                logging.warning("`inst_addr` must be set to the IP address of the device."
-                                "We are attempting to find it for you using known device ips...")
+                logging.warning(
+                    "`inst_addr` must be set to the IP address of the device. "
+                    "We are attempting to find it for you using known device ips..."
+                )
+                # TODO: Wouldn't it be great if we could broadcast a packet, identify any response
+                #  Cerebus packets on port 51002, then use the origin IP from that?
                 for _term in ["200", "201", "128"]:
                     _test_addr = "192.168.137." + _term
                     if ping(_test_addr):
                         inst_addr = _test_addr
                         break
                 if inst_addr == "":
-                    raise ValueError("inst_addr: Unable to find device at known addresses. "
-                                     "Please specify inst_addr argument.")
+                    raise ValueError(
+                        "inst_addr: Unable to find a device at any of the known addresses. "
+                        "Please specify inst_addr argument."
+                    )
                 logging.warning(f"Using inst_addr={inst_addr}.")
 
         self._inst_addr = inst_addr
