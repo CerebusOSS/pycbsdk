@@ -20,7 +20,7 @@ from pycbsdk import cbsdk
 
 params_obj = cbsdk.create_params()
 nsp_obj = cbsdk.get_device(params_obj)  # NSPDevice instance. This will be the first argument to most API calls. 
-err = cbsdk.connect(nsp_obj)  # Bind sockets, change device run state, and get device config.
+runlevel = cbsdk.connect(nsp_obj)  # Bind sockets, change device run state, and get device config.
 config = cbsdk.get_config(nsp_obj)
 print(config)
 ```
@@ -41,12 +41,13 @@ Upon initialization, the `NSPDevice` instance configures its sockets (but no con
 
 When the connection to the device is established, two threads are created and started:
 * `CerebusDatagramThread`
-  * Retrieves datagrams using `asyncio`
-  * Slices into generic packets
-  * Casts packets into their native type
-  * Enqueues packets for the PacketHandlerThread
+  * Makes heavy use of `asyncio`
+    * A Receiver Coroutine retrieves datagrams, slices into generic packets, enqueues them in the receiver queue
+    * A Sender Coroutine monitors a sender queue and immediately sends found packets.
 * `PacketHandlerThread`
+  * Monitors the receiver queue.
   * Updates device state (e.g., mirrors device time)
+  * Materializes the generic packets into specific packets.
   * Calls registered callbacks depending on the packet type.
 
 `connect()` has `startup_sequence=True` by default. This will cause the SDK to attempt to put the device into a running state. Otherwise, it'll stay in its original run state.
