@@ -11,66 +11,52 @@ logger = logging.getLogger(__name__)
 
 
 class DummyApp:
-    spike_window = 0.5
-    n_chans = 128
-
-    def __init__(self):
+    def __init__(self, n_chans, history=1.0, tstep=(1 / 30_000)):
+        self._n_chans = n_chans
+        self._hist_dur = history
+        self._cutoff_steps = round(self._hist_dur / tstep)
         self._spike_times, self._spike_chans, self._spike_counts = None, None, None
         self._frames = None
         self.reset_state()
 
     def reset_state(self):
-        # TODO: Get n_chans from device
-        self._spike_times = [deque() for _ in range(DummyApp.n_chans)]
+        # Time of spike events in order received.
+        self._spike_times = deque()
+        # Channel of spike event in order received.
         self._spike_chans = deque()
-        self._spike_counts = [0] * DummyApp.n_chans
+        # Number of spikes in buffer for each channel:
+        self._spike_counts = [0] * self._n_chans
 
     def update_state(self, spk_pkt):
-        # If the file wrapped around then reset internal state.
-        if self._spike_chans and (
-            spk_pkt.header.time < self._spike_times[self._spike_chans[-1]][-1]
-        ):
-            self.reset_state()
+        # Packet header chid is 1-based. We need a 0-based for indexing.
+        chix = spk_pkt.header.chid - 1
 
         # Add new spike events
-        self._spike_times[spk_pkt.header.chid].append(spk_pkt.header.time)
+        self._spike_times.append(spk_pkt.header.time)
         self._spike_chans.append(spk_pkt.header.chid)
-        self._spike_counts[spk_pkt.header.chid] += 1
+        self._spike_counts[chix] += 1
 
         # Clear old spike events
-        cutoff = spk_pkt.header.time - round(30000 * DummyApp.spike_window)
-        while self._spike_chans and self._spike_times[self._spike_chans[0]][0] < cutoff:
-            rem_chid = self._spike_chans.popleft()
-            self._spike_times[rem_chid].popleft()
-            self._spike_counts[rem_chid] -= 1
-
-    def handle_frame(self, pkt):
-        if self._frames is None or self._frames.shape[1] != pkt.data.size:
-            # First packet or first packet of new shape.
-            self._frames = pkt.data[None, :]
-        else:
-            self._frames = np.vstack((self._frames, pkt.data))
-        if self._frames.shape[0] > 30000:
-            res = ",\t".join(
-                [
-                    f"{mu:.2f} +/- {sigma:.2f}"
-                    for mu, sigma in zip(
-                        np.mean(self._frames, axis=0), np.std(self._frames, axis=0)
-                    )
-                ]
-            )
-            print(res)
-            self._frames = self._frames[-1:, :]
+        cutoff = spk_pkt.header.time - self._cutoff_steps
+        while self._spike_chans and self._spike_times[0] < cutoff:
+            rem_chix = self._spike_chans.popleft() - 1
+            self._spike_times.popleft()
+            self._spike_counts[rem_chix] -= 1
 
     def render_state(self):
         print(
-            f"Firing rate:\t{np.nanmean(self._spike_counts) / DummyApp.spike_window:.2f} Hz "
-            f"+/- {np.nanstd(self._spike_counts) / DummyApp.spike_window:.2f} "  # Not sure if valid?
-            f"({np.nanmin(self._spike_counts) / DummyApp.spike_window:.2f} - {np.nanmax(self._spike_counts) / DummyApp.spike_window:.2f})"
+            f"Firing rate:\t{np.nanmean(self._spike_counts) / self._hist_dur:.2f} Hz "
+            f"+/- {np.nanstd(self._spike_counts) / self._hist_dur:.2f} "  # Not sure if valid?
+            f"({np.nanmin(self._spike_counts) / self._hist_dur:.2f} - {np.nanmax(self._spike_counts) / self._hist_dur:.2f})"
         )
 
 
-def run(skip_startup: bool = False, **params_kwargs):
+def run(
+    skip_startup: bool = False,
+    update_interval: float = 1.0,
+    nanosec=False,
+    **params_kwargs,
+):
     """
     Run the application:
     - setup the connection to the nsp
@@ -78,6 +64,8 @@ def run(skip_startup: bool = False, **params_kwargs):
     - run the async chain
     - on the main thread, render the internal state (print the min-max mean+/-std of the rates every 0.5 seconds).
     :param skip_startup:
+    :param update_interval:
+    :param nanosec:
     :return:
     """
     params_obj = cbsdk.create_params(**params_kwargs)
@@ -89,6 +77,16 @@ def run(skip_startup: bool = False, **params_kwargs):
         )
         return
     config = cbsdk.get_config(nsp_obj)
+    if not config:
+        cbsdk.disconnect(nsp_obj)
+        raise RuntimeError(
+            "Did not receive config from device within timeout. "
+            "If above warnings suggest an incomplete response to REQCONFIGALL "
+            "then this indicates dropped packets."
+        )
+
+    # Note: config["channel_types"] and config["channel_infos"] are both dictionaries
+    #  where the keys are 1-based channel indices.
 
     # Check which channels have spiking enabled and what kind of thresholding they are using.
     #  TODO: We should have API functions to check channel capabilities instead of
@@ -116,28 +114,24 @@ def run(skip_startup: bool = False, **params_kwargs):
         f"{len(spike_status['auto'])} of the spike-enabled channels are using auto-thresholding."
     )
 
-    if not skip_startup:
-        # Disable spiking on all front end channels.
-        for chid in [
-            k
-            for k, v in config["channel_types"].items()
-            if v in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]
-        ]:
-            _ = cbsdk.set_channel_spk_config(nsp_obj, chid, "enable", False)
-            _ = cbsdk.set_channel_config(nsp_obj, chid, "smpgroup", 0)
-
-        # Enable some channels for spiking and sample group 5
-        N_ACTIVE_CHANNELS = 3
-        for chid in range(1, 1 + N_ACTIVE_CHANNELS):
-            _ = cbsdk.set_channel_spk_config(nsp_obj, chid, "enable", True)
-            _ = cbsdk.set_channel_spk_config(nsp_obj, chid, "autothreshold", True)
-            _ = cbsdk.set_channel_config(nsp_obj, chid, "smpgroup", 5)
+    # Enable spiking and disable continuous streams on all analog channels
+    chan_count = 0
+    for chid in [
+        k
+        for k, v in config["channel_types"].items()
+        if v in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]
+    ]:
+        _ = cbsdk.set_channel_spk_config(nsp_obj, chid, "enable", True)
+        _ = cbsdk.set_channel_spk_config(nsp_obj, chid, "autothreshold", False)
+        _ = cbsdk.set_channel_config(nsp_obj, chid, "smpgroup", 0)
+        chan_count += 1
 
     # Create a dummy app.
-    app = DummyApp()
+    app = DummyApp(
+        chan_count, history=update_interval, tstep=1e-9 if nanosec else (1 / 30_000)
+    )
     # Register callbacks to update the app's state when appropriate packets are received.
     _ = cbsdk.register_spk_callback(nsp_obj, app.update_state)
-    _ = cbsdk.register_group_callback(nsp_obj, 5, app.handle_frame)
 
     # DEBUG: Register a callback to print the heartbeat.
     # _ = cbsdk.register_config_callback(nsp_obj, packet.CBPacketType.SYSHEARTBEAT,
@@ -147,7 +141,7 @@ def run(skip_startup: bool = False, **params_kwargs):
     try:
         while True:
             app.render_state()
-            time.sleep(5.0)
+            time.sleep(update_interval)
     except KeyboardInterrupt:
         pass
     finally:
@@ -202,9 +196,21 @@ def main():
         help="Protocol Version. 3.11, 4.0, or 4.1 supported.",
     )
     parser.add_argument(
+        "--nanosec",
+        action="store_true",
+        help="Set this flag if data are coming from a Gemini system "
+        "on protocol >= 4.1 using PTP timestamps in nanoseconds",
+    )
+    parser.add_argument(
         "--skip_startup",
         action="store_true",
         help="Skip the initial handshake as well as the attempt to set the device to RUNNING.",
+    )
+    parser.add_argument(
+        "--update_interval",
+        type=float,
+        default=1.0,
+        help="Interval between updates. This determines how big the queues can grow.",
     )
     parser.add_argument(
         "--debug",
