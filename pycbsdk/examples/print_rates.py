@@ -38,7 +38,10 @@ class DummyApp:
 
         # Clear old spike events
         cutoff = spk_pkt.header.time - self._cutoff_steps
-        while self._spike_chans and self._spike_times[0] < cutoff:
+        while self._spike_chans and (
+            (self._spike_times[0] < cutoff)
+            or (self._spike_times[0] > self._spike_times[-1])
+        ):
             rem_chix = self._spike_chans.popleft() - 1
             self._spike_times.popleft()
             self._spike_counts[rem_chix] -= 1
@@ -118,13 +121,18 @@ def run(
     chan_count = 0
     for chid in [
         k
-        for k, v in config["channel_types"].items()
-        if v in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]
+        for k, v in config["channel_infos"].items()
+        if config["channel_types"][k]
+        in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]
     ]:
-        _ = cbsdk.set_channel_spk_config(nsp_obj, chid, "enable", True)
         _ = cbsdk.set_channel_spk_config(nsp_obj, chid, "autothreshold", False)
-        _ = cbsdk.set_channel_config(nsp_obj, chid, "smpgroup", 0)
-        chan_count += 1
+        if chan_count < 3:
+            _ = cbsdk.set_channel_spk_config(nsp_obj, chid, "enable", True)
+            _ = cbsdk.set_channel_config(nsp_obj, chid, "smpgroup", 5)
+            chan_count += 1
+        else:
+            _ = cbsdk.set_channel_spk_config(nsp_obj, chid, "enable", False)
+            _ = cbsdk.set_channel_config(nsp_obj, chid, "smpgroup", 0)
 
     # Create a dummy app.
     app = DummyApp(
