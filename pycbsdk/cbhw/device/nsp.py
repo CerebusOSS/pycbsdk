@@ -401,7 +401,7 @@ class NSPDevice(DeviceInterface):
         self._config["nplay"] = pkt
 
     def _handle_procmon(self, pkt):
-        update_interval = pkt.header.time - self._monitor_state["time"]
+        update_interval = max(pkt.header.time - self._monitor_state["time"], 1)
         pkt_delta = self.pkts_received - self._monitor_state["pkts_received"]
 
         v_int = [int(_) for _ in self._params.protocol.split(".")]
