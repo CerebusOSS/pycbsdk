@@ -26,6 +26,7 @@ class DeviceInterface:
             "proc_chans": 0,
             "channel_infos": {},
             "group_infos": {},
+            "sysfreq": None,  # Should be 30_000 for legacy or 1e9 for Gemini PTP
         }
         self.config_callbacks = defaultdict(
             lambda: []

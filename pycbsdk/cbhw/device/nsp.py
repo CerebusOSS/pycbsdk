@@ -332,6 +332,7 @@ class NSPDevice(DeviceInterface):
             self._config["transport"] = pkt.transport  # bitwise or'd flags
         if b_general or pkt.header.type == CBPacketType.SYSREPRUNLEV:
             self._config["runlevel"] = CBRunLevel(pkt.runlevel)
+            self._config["sysfreq"] = pkt.sysfreq
         self._config_events["sysrep"].set()
         if b_general or pkt.header.type == CBPacketType.SYSREPRUNLEV:
             if self._config["runlevel"] == CBRunLevel.STANDBY:
@@ -569,6 +570,7 @@ class NSPDevice(DeviceInterface):
             # Clear out our existing config
             self._config["proc_chans"] = 0
             self._config["channel_infos"] = {}
+            self._config["sysfreq"] = None
             time.sleep(0.1)
             pkt = self.packet_factory.make_packet(
                 None,
