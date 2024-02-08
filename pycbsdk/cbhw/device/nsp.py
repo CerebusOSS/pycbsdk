@@ -489,10 +489,13 @@ class NSPDevice(DeviceInterface):
         self._send_packet(pkt)
 
     def _configure_channel_smpgroup(self, chid: int, attr_value: int):
-        if attr_value in [0, 6]:
-            self._toggle_channel_ainp_flag(
-                chid, CBAnaInpOpts.refelec_rawstream, not not attr_value
-            )
+        if attr_value in [0, 5]:
+            # Disable raw when setting group to 0 or 5
+            self._toggle_channel_ainp_flag(chid, CBAnaInpOpts.refelec_rawstream, False)
+            time.sleep(0.005)
+        elif attr_value == 6:
+            # Enable raw. Note: We do not first check that 5 is not enabled.
+            self._toggle_channel_ainp_flag(chid, CBAnaInpOpts.refelec_rawstream, True)
             time.sleep(0.005)
 
         pkt = copy.copy(self._config["channel_infos"][chid])
