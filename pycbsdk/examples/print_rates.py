@@ -54,43 +54,73 @@ class DummyApp:
         )
 
 
-def run(
+def main(
+    inst_addr: str = "",
+    inst_port: int = 51002,
+    client_addr: str = "",
+    client_port: int = 51002,
+    recv_bufsize: int = (8 if sys.platform == "win32" else 6) * 1024 * 1024,
+    protocol: str = "4.1",
+    loglevel: str = "debug",
     skip_startup: bool = False,
     update_interval: float = 1.0,
-    nanosec=False,
-    **params_kwargs,
 ):
     """
     Run the application:
-    - setup the connection to the nsp
-    - register a callback that handles the spikes and updates internal state
-    - run the async chain
-    - on the main thread, render the internal state (print the min-max mean+/-std of the rates every 0.5 seconds).
-    :param skip_startup:
-    :param update_interval:
-    :param nanosec:
+    - Set up the connection to the nsp.
+    - Normalize the device config (disable all continuous, activate spiking with man. thresh on all channels).
+    - Create a dummy application.
+    - Use the app to register a callback that handles the spikes and updates internal state.
+    - The app will render its internal state (summary spike rate statistics).
+    :param inst_addr: ipv4 address of device. pycbsdk will send control packets to this address.
+        Use 127.0.0.1 for use with nPlayServer (non-bcast).
+        Subnet OK, e.g. 192.168.137.255 well send control packets to all devices on subnet.
+        The default is 0.0.0.0 (IPADDR_ANY) on Mac and Linux. On Windows, known IPs will be searched.
+    :param inst_port: Network port to send control packets.
+        Use 51002 for Gemini and 51001 for Legacy NSP.
+    :param client_addr: ipv4 address of this machine's network adapter we will receive packets on.
+        Defaults to INADDR_ANY. If address is provided, assumes Cerebus Subnet.
+    :param client_port:
+        Network port to receive packets. This should always be 51002.
+    :param recv_bufsize: UDP socket recv buffer size.
+    :param protocol: Protocol Version. 3.11, 4.0, or 4.1 supported.
+    :param loglevel: debug, info, or warning
+    :param skip_startup: Skip the initial handshake as well as the attempt to set the device to RUNNING.
+    :param update_interval: Interval between updates. This determines how big the queues can grow.
     :return:
     """
-    params_obj = cbsdk.create_params(**params_kwargs)
+    # Handle logger arguments
+    loglevel = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+    }[loglevel.lower()]
+    logger.setLevel(loglevel)
+
+    # Create connection to the device.
+    params_obj = cbsdk.create_params(
+        inst_addr=inst_addr,
+        inst_port=inst_port,
+        client_addr=client_addr,
+        client_port=client_port,
+        recv_bufsize=recv_bufsize,
+        protocol=protocol,
+    )
     nsp_obj = cbsdk.get_device(params_obj)
-    run_level = cbsdk.connect(nsp_obj, startup_sequence=not skip_startup)
-    if not run_level:
+    if cbsdk.connect(nsp_obj, startup_sequence=not skip_startup) != 50:
         logger.error(
             f"Could not connect to device. Check params and try again: \n{params_obj}."
         )
-        return
+        sys.exit(-1)
+
     config = cbsdk.get_config(nsp_obj)
     if not config:
-        cbsdk.disconnect(nsp_obj)
-        raise RuntimeError(
-            "Did not receive config from device within timeout. "
-            "If above warnings suggest an incomplete response to REQCONFIGALL "
-            "then this indicates dropped packets."
-        )
+        sys.exit(-1)
 
     # Note: config["channel_types"] and config["channel_infos"] are both dictionaries
     #  where the keys are 1-based channel indices.
 
+    # Print information about current config.
     # Check which channels have spiking enabled and what kind of thresholding they are using.
     #  TODO: We should have API functions to check channel capabilities instead of
     #   importing from pycbsdk.cbhw and doing bitwise testing here
@@ -118,26 +148,19 @@ def run(
     )
 
     # Enable spiking and disable continuous streams on all analog channels
-    chan_count = 0
-    for chid in [
-        k
-        for k, v in config["channel_infos"].items()
-        if config["channel_types"][k]
-        in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]
-    ]:
-        _ = cbsdk.set_channel_spk_config(nsp_obj, chid, "autothreshold", False)
-        if chan_count < 3:
-            _ = cbsdk.set_channel_spk_config(nsp_obj, chid, "enable", True)
-            _ = cbsdk.set_channel_config(nsp_obj, chid, "smpgroup", 5)
-            chan_count += 1
-        else:
-            _ = cbsdk.set_channel_spk_config(nsp_obj, chid, "enable", False)
-            _ = cbsdk.set_channel_config(nsp_obj, chid, "smpgroup", 0)
+    for ch_type in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]:
+        cbsdk.set_all_channels_config(nsp_obj, ch_type, "smpgroup", 0)
+        cbsdk.set_all_channels_spk_config(nsp_obj, ch_type, "autothreshold", False)
+        cbsdk.set_all_channels_spk_config(nsp_obj, ch_type, "enable", True)
 
-    # Create a dummy app.
-    app = DummyApp(
-        chan_count, history=update_interval, tstep=1e-9 if nanosec else (1 / 30_000)
-    )
+    # Count the number of FrontEnd | AnalogIn channels.
+    b_spk = [
+        _ in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]
+        for _ in config["channel_types"].values()
+    ]
+
+    # Create the dummy app.
+    app = DummyApp(sum(b_spk), history=update_interval, tstep=1 / config["sysfreq"])
     # Register callbacks to update the app's state when appropriate packets are received.
     _ = cbsdk.register_spk_callback(nsp_obj, app.update_state)
 
@@ -146,6 +169,7 @@ def run(
     #                                      lambda pkt: print(f"Heartbeat proctime: {pkt.header.time}"))
 
     # Render the internal state forever. Here this is simply a printout. It could be a GUI or a BCI.
+    # Ctrl + C to quit.
     try:
         while True:
             app.render_state()
@@ -156,93 +180,16 @@ def run(
         _ = cbsdk.disconnect(nsp_obj)
 
 
-def main():
-    # --inst_addr=192.168.137.255 --client_addr=192.168.137.199
-    parser = argparse.ArgumentParser(description="Consume data from (emulated) NSP.")
-    parser.add_argument(
-        "--inst_addr",
-        "-i",
-        type=str,
-        default="",
-        help="ipv4 address of device. pycbsdk will send control packets to this address. Subnet OK. "
-        "Use 127.0.0.1 for use with nPlayServer (non-bcast). "
-        "The default is 0.0.0.0 (IPADDR_ANY) on Mac and Linux. On Windows, known IPs will be searched.",
-    )
-    parser.add_argument(
-        "--inst_port",
-        type=int,
-        default=51002,
-        help="Network port to send control packets."
-        "Use 51002 for Gemini and 51001 for Legacy NSP.",
-    )
-    parser.add_argument(
-        "--client_addr",
-        "-c",
-        type=str,
-        default="",
-        help="ipv4 address of this machine's network adapter we will receive packets on. "
-        "Defaults to INADDR_ANY. If address is provided, assumes Cerebus Subnet.",
-    )
-    parser.add_argument(
-        "--client_port",
-        "-p",
-        type=int,
-        default=51002,
-        help="Network port to receive packets. This should always be 51002.",
-    )
-    parser.add_argument(
-        "--recv_bufsize",
-        "-b",
-        type=int,
-        help=f"UDP socket recv buffer size. "
-        f"Default: {(8 if sys.platform == 'win32' else 6) * 1024 * 1024}.",
-    )
-    parser.add_argument(
-        "--protocol",
-        type=str,
-        default="4.1",
-        help="Protocol Version. 3.11, 4.0, or 4.1 supported.",
-    )
-    parser.add_argument(
-        "--nanosec",
-        action="store_true",
-        help="Set this flag if data are coming from a Gemini system "
-        "on protocol >= 4.1 using PTP timestamps in nanoseconds",
-    )
-    parser.add_argument(
-        "--skip_startup",
-        action="store_true",
-        help="Skip the initial handshake as well as the attempt to set the device to RUNNING.",
-    )
-    parser.add_argument(
-        "--update_interval",
-        type=float,
-        default=1.0,
-        help="Interval between updates. This determines how big the queues can grow.",
-    )
-    parser.add_argument(
-        "--debug",
-        "-d",
-        help="Print lots of debugging statements",
-        action="store_const",
-        dest="loglevel",
-        const=logging.DEBUG,
-        default=logging.WARNING,
-    )
-    parser.add_argument(
-        "--verbose",
-        "-v",
-        help="Be verbose",
-        action="store_const",
-        dest="loglevel",
-        const=logging.INFO,
-    )
-    args = parser.parse_args()
-    kwargs = vars(args)
-
-    logger.setLevel(kwargs.pop("loglevel"))
-    run(**kwargs)
-
-
 if __name__ == "__main__":
-    main()
+    b_try_with_defaults = False
+    try:
+        import typer
+
+        typer.run(main)
+    except ModuleNotFoundError:
+        print(
+            "`pip install typer` to pass command-line arguments. Trying with defaults."
+        )
+        b_try_with_defaults = True
+    if b_try_with_defaults:
+        main()
