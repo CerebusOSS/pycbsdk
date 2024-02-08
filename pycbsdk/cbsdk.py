@@ -74,6 +74,14 @@ def set_channel_config_by_packet(device: NSPDevice, packet: Structure):
     device.configure_channel_by_packet(packet)
 
 
+def set_channel_disable(device: NSPDevice, chid: int):
+    device.configure_channel_disable(chid)
+
+
+def set_all_channels_disable(device: NSPDevice, chtype: CBChannelType):
+    device.configure_all_channels_disable(chtype)
+
+
 def set_channel_config(device: NSPDevice, chid: int, attr: str, value):
     device.configure_channel(chid, attr, value)
 

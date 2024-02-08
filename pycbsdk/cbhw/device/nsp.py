@@ -591,6 +591,23 @@ class NSPDevice(DeviceInterface):
             if self._config["channel_types"][chid] == chtype:
                 self.configure_channel_spike(chid, attr_name, attr_value)
 
+    def configure_channel_disable(self, chid: int):
+        ch_pkt = copy.copy(self._config["channel_infos"][chid])
+        ch_pkt.spkopts &= ~CBAInpSpk.EXTRACT.value  # Disable spiking
+        ch_pkt.spkopts &= ~CBAInpSpk.THRAUTO.value  # Disable auto-thresholding
+        ch_pkt.ainpopts &= ~CBAnaInpOpts.refelec_offsetcorrect  # Disable DC offset
+        ch_pkt.ainpopts &= ~CBAnaInpOpts.lnc_mask  # Disable LNC
+        ch_pkt.ainpopts &= ~CBAnaInpOpts.refelec_mask  # Disable refelec_mask
+        ch_pkt.ainpopts |= ~CBAnaInpOpts.refelec_rawstream  # disable raw
+        ch_pkt.smpgroup = 0
+        ch_pkt.smpfilter = 0
+        self.configure_channel_by_packet(ch_pkt)
+
+    def configure_all_channels_disable(self, chtype: CBChannelType):
+        for chid, _type in self._config["channel_types"].items():
+            if _type == chtype:
+                self.configure_channel_disable(chid)
+
     def configure_channel_by_packet(self, packet: Structure):
         # If the data were coming through serialized, we could create a fresh packet with...
         # packet = self.packet_factory.make_packet(bytes(packet))
