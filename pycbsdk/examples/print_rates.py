@@ -149,8 +149,7 @@ def main(
 
     # Enable spiking and disable continuous streams on all analog channels
     for ch_type in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]:
-        cbsdk.set_all_channels_config(nsp_obj, ch_type, "smpgroup", 0)
-        cbsdk.set_all_channels_spk_config(nsp_obj, ch_type, "autothreshold", False)
+        cbsdk.set_all_channels_disable(nsp_obj, ch_type)
         cbsdk.set_all_channels_spk_config(nsp_obj, ch_type, "enable", True)
 
     # Count the number of FrontEnd | AnalogIn channels.
@@ -158,9 +157,10 @@ def main(
         _ in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]
         for _ in config["channel_types"].values()
     ]
+    n_chans = sum(b_spk)
 
     # Create the dummy app.
-    app = DummyApp(sum(b_spk), history=update_interval, tstep=1 / config["sysfreq"])
+    app = DummyApp(n_chans, history=update_interval, tstep=1 / config["sysfreq"])
     # Register callbacks to update the app's state when appropriate packets are received.
     _ = cbsdk.register_spk_callback(nsp_obj, app.update_state)
 

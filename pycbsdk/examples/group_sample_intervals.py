@@ -12,8 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 class DummyApp:
-    def __init__(self, duration=21.0):
+    def __init__(self, duration=21.0, t_step=1 / 30_000):
         n_samples = int(np.ceil(duration * 30_000))
+        self._t_step = t_step
         self._buffer = np.zeros((n_samples, 2), dtype=np.int16)
         self._ts = np.zeros((n_samples,), dtype=np.int64)
         self._write_index = 0
@@ -28,14 +29,9 @@ class DummyApp:
     def finish(self):
         b_ts = self._ts > 0
         if np.any(b_ts):
-            mean_itsi = np.mean(np.diff(self._ts[b_ts]))
-            ts_elapsed = self._ts[b_ts][-1] - self._ts[b_ts][0]
-            if mean_itsi < 100:
-                s_elapsed = ts_elapsed / 30_000
-            else:
-                # If timestamps are nanoseconds then mean_itsi should be ~ 33_333
-                s_elapsed = ts_elapsed / 1e9
-            s_elapsed += 1 / 30_000
+            avg_isi = np.mean(np.diff(self._ts[b_ts]))
+            ts_elapsed = self._ts[b_ts][-1] - self._ts[b_ts][0] + avg_isi
+            s_elapsed = ts_elapsed * self._t_step
             n_samps = np.sum(b_ts)
             print(
                 f"Collected {n_samps} samples in {s_elapsed} s\t({n_samps/s_elapsed:.2f} Hz)."
@@ -81,22 +77,15 @@ def main(
         sys.exit(-1)
     config = cbsdk.get_config(nsp_obj)
 
-    # Disable all channels spike and continuous.
-    #  Note: Setting smpgroup=0 will also disable raw.
-    #  Note: Setting any smpgroup also disables filters. :/
-    for chid in [
-        k
-        for k, v in config["channel_types"].items()
-        if v in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]
-    ]:
-        _ = cbsdk.set_channel_spk_config(nsp_obj, chid, "enable", False)
-        _ = cbsdk.set_channel_config(nsp_obj, chid, "smpgroup", 0)
+    # Disable all channels
+    for chtype in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]:
+        cbsdk.set_all_channels_disable(nsp_obj, chtype)
 
-    # Enable channel 1 at smpgroup.
+    # Enable channel 1 at smpgroup. For smpgroup < 5, this also updates the smpfilter.
     _ = cbsdk.set_channel_config(nsp_obj, 1, "smpgroup", smpgroup)
 
     # Create a dummy app.
-    app = DummyApp(duration=duration)
+    app = DummyApp(duration=duration, t_step=1 / config["sysfreq"])
 
     time.sleep(2.0)
 
