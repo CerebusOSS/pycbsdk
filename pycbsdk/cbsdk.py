@@ -155,7 +155,7 @@ def register_config_callback(
     device.register_config_callback(packet_type, func)
 
 
-def unregister_group_callback(
+def unregister_config_callback(
     device: NSPDevice, packet_type: CBPacketType, func: Callable[[Structure], None]
 ) -> int:
     return device.unregister_config_callback(packet_type, func)
