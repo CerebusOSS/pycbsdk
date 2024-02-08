@@ -5,7 +5,7 @@ import threading
 
 from .device.base import DeviceInterface
 from .packet.factory import CBPacketFactory
-from .packet.common import CBSpecialChan
+from .packet.common import CBSpecialChan, CBChannelType
 
 
 logger = logging.getLogger(__name__)
@@ -91,6 +91,8 @@ class PacketHandlerThread(threading.Thread):
                 b_debug_unknown = False
             else:
                 callbacks = self._device.event_callbacks[chantype]
+                if chantype != CBChannelType.Any:
+                    callbacks += self._device.event_callbacks[CBChannelType.Any]
                 b_debug_unknown = False
 
             # Only bother to construct the packet if we have a callback registered.
