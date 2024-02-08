@@ -258,6 +258,7 @@ class NSPDevice(DeviceInterface):
 
         self._config_func_map = {
             "smpgroup": self._configure_channel_smpgroup,
+            "smpfilter": self._configure_channel_smpfilter,
             "autothreshold": self._configure_channel_autothreshold,
             "label": self._configure_channel_label,
             "lnc": self._configure_channel_lnc,
@@ -544,6 +545,12 @@ class NSPDevice(DeviceInterface):
         self._toggle_channel_ainp_flag(
             chid, CBAnaInpOpts.refelec_offsetcorrect, not not attr_value
         )
+
+    def _configure_channel_smpfilter(self, chid: int, attr_value: int):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.smpfilter = attr_value
+        pkt.header.type = CBPacketType.CHANSETSMP
+        self._send_packet(pkt)
 
     def _configure_channel_enable_spike(self, chid: int, attr_value: bool):
         pkt = copy.copy(self._config["channel_infos"][chid])
