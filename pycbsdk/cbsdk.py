@@ -106,14 +106,26 @@ def get_runlevel(device: NSPDevice) -> CBRunLevel:
     return device.get_runlevel()
 
 
-def register_spk_callback(device: NSPDevice, func: Callable[[Structure], None]) -> int:
-    return register_event_callback(device, CBChannelType.FrontEnd, func)
-
-
 def register_event_callback(
     device: NSPDevice, channel_type: CBChannelType, func: Callable[[Structure], None]
 ) -> int:
     return device.register_event_callback(channel_type, func)
+
+
+def unregister_event_callback(
+    device: NSPDevice, channel_type: CBChannelType, func: Callable[[Structure], None]
+) -> int:
+    return device.unregister_event_callback(channel_type, func)
+
+
+def register_spk_callback(device: NSPDevice, func: Callable[[Structure], None]) -> int:
+    return register_event_callback(device, CBChannelType.FrontEnd, func)
+
+
+def unregister_spk_callback(
+    device: NSPDevice, func: Callable[[Structure], None]
+) -> int:
+    return unregister_event_callback(device, CBChannelType.FrontEnd, func)
 
 
 def register_group_callback(
@@ -134,3 +146,9 @@ def register_config_callback(
     device: NSPDevice, packet_type: CBPacketType, func: Callable[[Structure], None]
 ) -> int:
     return device.register_config_callback(packet_type, func)
+
+
+def unregister_group_callback(
+    device: NSPDevice, packet_type: CBPacketType, func: Callable[[Structure], None]
+) -> int:
+    return device.unregister_config_callback(packet_type, func)

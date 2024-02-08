@@ -468,12 +468,30 @@ class NSPDevice(DeviceInterface):
         self.event_callbacks[chan_type].append(callback)
         return 0
 
+    def unregister_event_callback(
+        self, chan_type: CBChannelType, callback: Callable[[Structure], None]
+    ) -> int:
+        if callback in self.event_callbacks[chan_type]:
+            self.event_callbacks[chan_type].remove(callback)
+            return 0
+        else:
+            return -1
+
     def register_config_callback(
         self, pkt_type: CBPacketType, callback: Callable[[Structure], None]
     ) -> int:
         # TODO: Make this thread safe.
         self.config_callbacks[pkt_type].append(callback)
         return 0
+
+    def unregister_config_callback(
+        self, pkt_type: CBPacketType, callback: Callable[[Structure], None]
+    ) -> int:
+        if callback in self.config_callbacks[pkt_type]:
+            self.config_callbacks[pkt_type].remove(callback)
+            return 0
+        else:
+            return -1
 
     # endregion
 
