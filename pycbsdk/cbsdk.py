@@ -78,13 +78,18 @@ def set_channel_config(device: NSPDevice, chid: int, attr: str, value):
     device.configure_channel(chid, attr, value)
 
 
+def set_all_channels_config(device: NSPDevice, chtype: CBChannelType, attr: str, value):
+    device.configure_all_channels(chtype, attr, value)
 
 
 def set_channel_spk_config(device: NSPDevice, chid: int, attr: str, value):
     device.configure_channel_spike(chid, attr, value)
 
-def set_channel_spk_config(device: NSPDevice, chid: int, attr: str, value) -> int:
-    return device.configure_channel_spike(chid, attr, value)
+
+def set_all_channels_spk_config(
+    device: NSPDevice, chtype: CBChannelType, attr: str, value
+):
+    device.configure_all_channels_spike(chtype, attr, value)
 
 
 def get_config(device: NSPDevice, force_refresh: bool = True) -> dict:

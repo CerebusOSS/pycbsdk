@@ -563,6 +563,11 @@ class NSPDevice(DeviceInterface):
             self._config_func_map[attr_name.lower()](chid, attr_value)
             # self._config_events["chaninfo"].wait(timeout=0.02)
 
+    def configure_all_channels(self, chtype: CBChannelType, attr_name: str, attr_value):
+        for chid, ch_info in self._config["channel_infos"].items():
+            if self._config["channel_types"][chid] == chtype:
+                self.configure_channel(chid, attr_name, attr_value)
+
     def configure_channel_spike(self, chid: int, attr_name: str, attr_value):
         # self._config_events["chaninfo"].clear()
         # time.sleep(0.005)  # Sometimes setting the event is slower than the response?!
@@ -572,7 +577,14 @@ class NSPDevice(DeviceInterface):
             self._configure_channel_autothreshold(chid, attr_value)
         # self._config_events["chaninfo"].wait(timeout=0.02)
 
-    def configure_channel_by_packet(self, packet: Type[Structure]):
+    def configure_all_channels_spike(
+        self, chtype: CBChannelType, attr_name: str, attr_value
+    ):
+        for chid, ch_info in self._config["channel_infos"].items():
+            if self._config["channel_types"][chid] == chtype:
+                self.configure_channel_spike(chid, attr_name, attr_value)
+
+    def configure_channel_by_packet(self, packet: Structure):
         # If the data were coming through serialized, we could create a fresh packet with...
         # packet = self.packet_factory.make_packet(bytes(packet))
         packet.header.type = CBPacketType.CHANSET
