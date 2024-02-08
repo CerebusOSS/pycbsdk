@@ -484,8 +484,8 @@ class NSPDevice(DeviceInterface):
     def _toggle_channel_ainp_flag(self, chid: int, flag: int, enable: bool):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETAINP
-        pkt.ainpopts &= flag
-        pkt.ainpopts |= flag if enable else 0
+        pkt.ainpopts &= ~flag  # Always unset first
+        pkt.ainpopts |= flag if enable else 0  # Then re-apply or not
         self._send_packet(pkt)
 
     def _configure_channel_smpgroup(self, chid: int, attr_value: int):
