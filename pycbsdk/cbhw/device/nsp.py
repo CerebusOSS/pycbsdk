@@ -442,10 +442,9 @@ class NSPDevice(DeviceInterface):
     # region AdvancedCallbacks
     def register_group_callback(
         self, group: int, callback: Callable[[Structure], None]
-    ) -> int:
+    ):
         # TODO: Make this thread safe.
         self.group_callbacks[group].append(callback)
-        return 0
 
     def unregister_group_callback(
         self, group: int, callback: Callable[[Structure], None]
@@ -458,15 +457,13 @@ class NSPDevice(DeviceInterface):
 
     def register_event_callback(
         self, chan_type: CBChannelType, callback: Callable[[Structure], None]
-    ) -> int:
+    ):
         """
         :param chan_type: The type of channel this event is associated with. See CBChannelType for more info.
         :param callback:
-        :return: 0 - no error.
         """
         # TODO: Make this thread safe.
         self.event_callbacks[chan_type].append(callback)
-        return 0
 
     def unregister_event_callback(
         self, chan_type: CBChannelType, callback: Callable[[Structure], None]
@@ -479,10 +476,9 @@ class NSPDevice(DeviceInterface):
 
     def register_config_callback(
         self, pkt_type: CBPacketType, callback: Callable[[Structure], None]
-    ) -> int:
+    ):
         # TODO: Make this thread safe.
         self.config_callbacks[pkt_type].append(callback)
-        return 0
 
     def unregister_config_callback(
         self, pkt_type: CBPacketType, callback: Callable[[Structure], None]

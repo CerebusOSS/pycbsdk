@@ -62,21 +62,26 @@ def connect(device: NSPDevice, startup_sequence: bool = True) -> int:
     return device.connect(startup_sequence=startup_sequence)
 
 
-def disconnect(device: NSPDevice) -> int:
-    return device.disconnect()
+def disconnect(device: NSPDevice):
+    device.disconnect()
 
 
-def set_config(device: NSPDevice, cfg_name: str, cfg_value) -> int:
-    return device.configure(cfg_name, cfg_value)
+def set_config(device: NSPDevice, cfg_name: str, cfg_value):
+    device.configure(cfg_name, cfg_value)
 
 
-def set_channel_config_by_packet(device: NSPDevice, packet: object) -> int:
-    return device.configure_channel_by_packet(packet)
+def set_channel_config_by_packet(device: NSPDevice, packet: Structure):
+    device.configure_channel_by_packet(packet)
 
 
-def set_channel_config(device: NSPDevice, chid: int, attr: str, value) -> int:
-    return device.configure_channel(chid, attr, value)
+def set_channel_config(device: NSPDevice, chid: int, attr: str, value):
+    device.configure_channel(chid, attr, value)
 
+
+
+
+def set_channel_spk_config(device: NSPDevice, chid: int, attr: str, value):
+    device.configure_channel_spike(chid, attr, value)
 
 def set_channel_spk_config(device: NSPDevice, chid: int, attr: str, value) -> int:
     return device.configure_channel_spike(chid, attr, value)
@@ -86,19 +91,21 @@ def get_config(device: NSPDevice, force_refresh: bool = True) -> dict:
     return device.get_config(timeout=5.0, force_refresh=force_refresh)
 
 
-def get_type(device: NSPDevice):  # -> tuple[CBConnectionType, CBDeviceType]:
-    return device.get_type()
+# def get_type(device: NSPDevice):  # -> tuple[CBConnectionType, CBDeviceType]:
+#     return device.get_type()
 
 
 def reset_nsp(device: NSPDevice) -> int:
+    # returns CBError.NONE (0) if successful.
     return device.set_runlevel(CBRunLevel.HARDRESET)
 
 
-def set_transport(device: NSPDevice, transport: str, value: bool) -> int:
-    return device.set_transport(transport, value)
+def set_transport(device: NSPDevice, transport: str, value: bool):
+    device.set_transport(transport, value)
 
 
 def set_runlevel(device: NSPDevice, runlevel: CBRunLevel) -> int:
+    # returns CBError.NONE (0) if successful.
     return device.set_runlevel(runlevel)
 
 
@@ -108,8 +115,8 @@ def get_runlevel(device: NSPDevice) -> CBRunLevel:
 
 def register_event_callback(
     device: NSPDevice, channel_type: CBChannelType, func: Callable[[Structure], None]
-) -> int:
-    return device.register_event_callback(channel_type, func)
+):
+    device.register_event_callback(channel_type, func)
 
 
 def unregister_event_callback(
@@ -118,8 +125,8 @@ def unregister_event_callback(
     return device.unregister_event_callback(channel_type, func)
 
 
-def register_spk_callback(device: NSPDevice, func: Callable[[Structure], None]) -> int:
-    return register_event_callback(device, CBChannelType.FrontEnd, func)
+def register_spk_callback(device: NSPDevice, func: Callable[[Structure], None]):
+    register_event_callback(device, CBChannelType.FrontEnd, func)
 
 
 def unregister_spk_callback(
@@ -130,9 +137,9 @@ def unregister_spk_callback(
 
 def register_group_callback(
     device: NSPDevice, group: int, func: Callable[[Structure], None]
-) -> int:
+):
     # group: 1-6 for sampling group.
-    return device.register_group_callback(group, func)
+    device.register_group_callback(group, func)
 
 
 def unregister_group_callback(
@@ -144,8 +151,8 @@ def unregister_group_callback(
 
 def register_config_callback(
     device: NSPDevice, packet_type: CBPacketType, func: Callable[[Structure], None]
-) -> int:
-    return device.register_config_callback(packet_type, func)
+):
+    device.register_config_callback(packet_type, func)
 
 
 def unregister_group_callback(
