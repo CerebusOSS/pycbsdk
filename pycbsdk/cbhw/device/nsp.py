@@ -501,7 +501,8 @@ class NSPDevice(DeviceInterface):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETSMP
         pkt.smpgroup = attr_value
-        pkt.smpfilter = 0
+        # safe lowpass digital filter for smpgroups 1-4. Otherwise, disable filter.
+        pkt.smpfilter = {1: 5, 2: 6, 3: 7, 4: 10}.get(attr_value, 0)
         self._send_packet(pkt)
 
     def _configure_channel_autothreshold(self, chid: int, attr_value: int):
