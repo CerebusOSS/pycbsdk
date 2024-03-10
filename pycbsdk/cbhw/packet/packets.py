@@ -377,7 +377,7 @@ class CBPacketNTrodeInfo(CBPacketConfigFixed):
             "_label",
             c_char * 16,
         ),  # Label of the Ntrode (null terminated if < 16 characters)
-        ("ellipses", CBManualUnitMapping * 6 * 5),
+        ("ellipses", CBManualUnitMapping * 5 * 6),
         (
             "nSite",
             c_uint16,
