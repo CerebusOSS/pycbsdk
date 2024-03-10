@@ -64,6 +64,7 @@ def main(
     loglevel: str = "debug",
     skip_startup: bool = False,
     update_interval: float = 1.0,
+    set_hoops: bool = False
 ):
     """
     Run the application:
@@ -87,6 +88,7 @@ def main(
     :param loglevel: debug, info, or warning
     :param skip_startup: Skip the initial handshake as well as the attempt to set the device to RUNNING.
     :param update_interval: Interval between updates. This determines how big the queues can grow.
+    :param set_hoops: set True to enable hoop-based sorting on channel 2.
     :return:
     """
     # Handle logger arguments
@@ -151,6 +153,23 @@ def main(
     for ch_type in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]:
         cbsdk.set_all_channels_disable(nsp_obj, ch_type)
         cbsdk.set_all_channels_spk_config(nsp_obj, ch_type, "enable", True)
+
+    if set_hoops:
+        spk_hoops = {
+            1: {
+                1: {"time": 13, "min": -975, "max": -646},
+                2: {"time": 6, "min": 108, "max": 342},
+            },
+            2: {
+                1: {"time": 21, "min": 675, "max": 1033},
+                2: {"time": 31, "min": -538, "max": -185},
+            },
+            3: {
+                1: {"time": 17, "min": 481, "max": 820},
+                2: {"time": 35, "min": -23, "max": 262},
+            },
+        }
+        cbsdk.set_channel_spk_config(nsp_obj, 2, "hoops", spk_hoops)
 
     # Count the number of FrontEnd | AnalogIn channels.
     b_spk = [
