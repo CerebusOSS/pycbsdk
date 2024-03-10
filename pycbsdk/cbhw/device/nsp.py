@@ -45,6 +45,7 @@ from pycbsdk.cbhw.packet.common import (
     CBNPlayMode,
     CBNPlayFlag,
     CBSpecialChan,
+    CBHoop
 )
 from pycbsdk.cbhw.params import Params
 from pycbsdk.cbhw.consts import CBError
@@ -528,6 +529,29 @@ class NSPDevice(DeviceInterface):
         pkt.spkopts |= CBAInpSpk.THRAUTO.value if attr_value else 0
         self._send_packet(pkt)
 
+    def _configure_channel_hoops(self, chid: int, attr_value: dict):
+        """
+        Args:
+            chid: 1-based channel index
+            attr_value: a dictionary of dictionaries of dictionaries.
+                The outer dictionary keys are the 1-based unit ids.
+                The middle dictionary keys are the 1-based hoop ids.
+                The inner dictionary has fields 'time', 'min', and 'max'.
+                e.g. attr_value = {1: {
+                    1: {'time': 13, 'min': -975, 'max': -646},
+                    2: {'time': 6, 'min': 108, 'max': 342}
+                }
+                This will set the first two hoops for unit-1.
+        """
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.header.type = CBPacketType.CHANSETSPKHPS
+        for un_id, hoop_dicts in attr_value.items():
+            for hp_id, hp in hoop_dicts.items():
+                pkt.spkhoops[un_id-1][hp_id-1] = CBHoop(
+                    valid=1, time=hp["time"], min=hp["min"], max=hp["max"]
+                )
+        self._send_packet(pkt)
+
     def _configure_channel_label(self, chid: int, attr_value: str):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETLABEL
@@ -556,7 +580,11 @@ class NSPDevice(DeviceInterface):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETSPK
         pkt.spkopts &= ~CBAInpSpk.EXTRACT.value
-        pkt.spkopts |= CBAInpSpk.EXTRACT.value if attr_value else 0
+        if attr_value:
+            pkt.spkopts |= CBAInpSpk.EXTRACT.value if attr_value else 0
+            # Also reset sorting. Enable hoops by default.
+            pkt.spkopts &= ~CBAInpSpk.ALLSORT.value
+            pkt.spkopts |= CBAInpSpk.HOOPSORT.value
         self._send_packet(pkt, self._config_events["chaninfo"])
 
     def configure_channel(self, chid: int, attr_name: str, attr_value):
@@ -582,6 +610,8 @@ class NSPDevice(DeviceInterface):
             self._configure_channel_enable_spike(chid, attr_value)
         elif attr_name.lower().startswith("autothresh"):
             self._configure_channel_autothreshold(chid, attr_value)
+        elif attr_name.lower().startswith("hoops"):
+            self._configure_channel_hoops(chid, attr_value)
         # self._config_events["chaninfo"].wait(timeout=0.02)
 
     def configure_all_channels_spike(

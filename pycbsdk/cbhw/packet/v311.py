@@ -107,7 +107,7 @@ class CBPacketChanInfo(CBPacketConfigFixed):
         ("amplrejneg", c_int16),  # Amplitude rejection negative value
         ("refelecchan", c_uint32),  # Software reference electrode channel
         ("unitmapping", CBManualUnitMapping * 5),  # manual unit mapping
-        ("spkhoops", CBHoop * 5 * 4),  # spike hoop sorting set
+        ("spkhoops", CBHoop * 4 * 5),  # spike hoop sorting set
     ]
 
     @property
