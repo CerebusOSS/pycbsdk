@@ -30,7 +30,7 @@ if sys.platform.lower() == "win32":
     f_open_mapping.restype = wintypes.HANDLE
 
     f_map_view = windll.kernel32.MapViewOfFile
-    # f_map_view.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.SIZE]
+    f_map_view.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, wintypes.ctypes.c_size_t]
     f_map_view.restype = wintypes.LPVOID
 
     f_wait_object = windll.kernel32.WaitForSingleObject
