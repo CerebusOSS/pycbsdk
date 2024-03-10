@@ -45,6 +45,7 @@ from pycbsdk.cbhw.packet.common import (
     CBNPlayMode,
     CBNPlayFlag,
     CBSpecialChan,
+    CBHoop
 )
 from pycbsdk.cbhw.params import Params
 from pycbsdk.cbhw.consts import CBError
@@ -556,7 +557,11 @@ class NSPDevice(DeviceInterface):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETSPK
         pkt.spkopts &= ~CBAInpSpk.EXTRACT.value
-        pkt.spkopts |= CBAInpSpk.EXTRACT.value if attr_value else 0
+        if attr_value:
+            pkt.spkopts |= CBAInpSpk.EXTRACT.value if attr_value else 0
+            # Also reset sorting. Enable hoops by default.
+            pkt.spkopts &= ~CBAInpSpk.ALLSORT.value
+            pkt.spkopts |= CBAInpSpk.HOOPSORT.value
         self._send_packet(pkt, self._config_events["chaninfo"])
 
     def configure_channel(self, chid: int, attr_name: str, attr_value):
