@@ -536,10 +536,17 @@ class NSPDevice(DeviceInterface):
             attr_value: a dictionary of dictionaries of dictionaries.
                 The outer dictionary keys are the 1-based unit ids.
                 The middle dictionary keys are the 1-based hoop ids.
-                The inner dictionary has fields 'time', 'min', and 'max'.
-                e.g. attr_value = {1: {
-                    1: {'time': 13, 'min': -975, 'max': -646},
-                    2: {'time': 6, 'min': 108, 'max': 342}
+                The inner dictionary has mandatory fields 'time', 'min', and 'max'
+                    and optional field 'enabled' (or 'valid' is accepted).
+                    All values are assumed integers.
+                e.g. attr_value = {
+                    1: {
+                        1: {'time': 13, 'min': -975, 'max': -646, 'enabled': 1},
+                        2: {'time': 6, 'min': 108, 'max': 342, 'enabled': 1}
+                    },
+                    2: {
+                    ...
+                    }, ...
                 }
                 This will set the first two hoops for unit-1.
         """
@@ -548,7 +555,10 @@ class NSPDevice(DeviceInterface):
         for un_id, hoop_dicts in attr_value.items():
             for hp_id, hp in hoop_dicts.items():
                 pkt.spkhoops[un_id-1][hp_id-1] = CBHoop(
-                    valid=1, time=hp["time"], min=hp["min"], max=hp["max"]
+                    valid=int(hp["enabled"] if "enabled" in hp else hp.get("valid", 1)),
+                    time=int(hp["time"]),
+                    min=int(hp["min"]),
+                    max=int(hp["max"])
                 )
         self._send_packet(pkt)
 
