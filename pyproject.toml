@@ -1,3 +1,27 @@
+[tool.poetry]
+name = "pycbsdk"
+version = "0.1.4"
+description = "Pure Python interface to Blackrock Neurotech Cerebus devices"
+authors = ["Chadwick Boulay <chad@cbneurotech.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [
+  { include = "pycbsdk", from = "src" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.13"
+numpy = "^1.26.4"
+aenum = "^3.1.15"
+ifaddr = "^0.2.0"
+
+[tool.poetry.group.dev.dependencies]
+typer = "^0.9.0"
+pytest = "^8.1.1"
+
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+ezmsg-monitor = "pycbsdk.examples.print_rates:main"
