@@ -30,6 +30,10 @@ __all__ = [
     "register_event_callback",
     "register_group_callback",
     "register_config_callback",
+    "unregister_spk_callback",
+    "unregister_event_callback",
+    "unregister_group_callback",
+    "unregister_config_callback",
     "CBRunLevel",
 ]
 
