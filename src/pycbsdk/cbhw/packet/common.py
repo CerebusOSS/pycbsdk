@@ -1,9 +1,52 @@
 from ctypes import *
+from ctypes import _SimpleCData  # not included with *, supposed to be 'private'
 from enum import IntEnum
 from .. import config
 
 
 PKT_MAX_SIZE = 1024  # bytes
+
+# Class that uses the @print_pretty decorator
+# must provide a _fields_ list of tuples this is ("name", type)
+def print_pretty(cls):
+    def print_values(self, newline: bool = False, level: int = 0) -> str:
+        indent = "    " * level
+
+        def format_field(field):
+            value = getattr(self, field[0])
+            if isinstance(value, Array):
+                return "{}: [{}]".format(
+                    field[0], ", ".join(format_value(item, level + 1) for item in value)
+                )
+            else:
+                return "{}: {}".format(field[0], format_value(value, level + 1))
+
+        def format_value(value, level):
+            if isinstance(value, Structure):
+                return "\n" + indent + print_values(value, True, level)
+            elif isinstance(value, Array):
+                return "[{}]".format(
+                    "".join(format_value(item, level + 1) for item in value)
+                )
+            elif isinstance(value, _SimpleCData):
+                # TODO this never hits, not sure why...
+                return str("Help")
+            else:
+                return str(value)
+
+        return "{}: {{{}}}".format(
+            self.__class__.__name__,
+            ("\n" if newline else ", ").join(
+                format_field(field) for field in self._fields_
+            ),
+        )
+
+    def __str__(self):
+        return self.print_values()
+
+    setattr(cls, "print_values", print_values)
+    setattr(cls, "__str__", __str__)
+    return cls
 
 
 class CBPacketType(IntEnum):
