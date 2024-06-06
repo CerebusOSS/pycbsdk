@@ -5,6 +5,8 @@ from .. import config
 
 
 PKT_MAX_SIZE = 1024  # bytes
+MAX_UNITS = 5
+MAX_HOOPS = 4
 
 # Class that uses the @print_pretty decorator
 # must provide a _fields_ list of tuples this is ("name", type)
@@ -194,6 +196,7 @@ class CBTransport(IntEnum):
     ALL = 0xFFFF
 
 
+@print_pretty
 class CBScaling(Structure):
     _pack_ = 1
     _fields_ = [
@@ -206,6 +209,7 @@ class CBScaling(Structure):
     ]
 
 
+@print_pretty
 class CBFiltDesc(Structure):
     _pack_ = 1
     _fields_ = [
@@ -219,6 +223,7 @@ class CBFiltDesc(Structure):
     ]
 
 
+@print_pretty
 class CBManualUnitMapping(Structure):
     _pack_ = 1
     _fields_ = [
@@ -230,6 +235,7 @@ class CBManualUnitMapping(Structure):
     ]
 
 
+@print_pretty
 class CBHoop(Structure):
     _pack_ = 1
     _fields_ = [
@@ -240,6 +246,7 @@ class CBHoop(Structure):
     ]
 
 
+@print_pretty
 class CBChanLowHigh(Structure):
     _fields_ = [
         ("lowsamples", c_uint16),  # ??
@@ -248,6 +255,7 @@ class CBChanLowHigh(Structure):
     ]
 
 
+@print_pretty
 class CBChanMonitor(Structure):
     _fields_ = [
         ("monsource", c_uint32),  # address of channel to monitor
@@ -255,6 +263,7 @@ class CBChanMonitor(Structure):
     ]
 
 
+@print_pretty
 class CBChanInfoUnion(Union):
     _fields_ = [("a", CBChanMonitor), ("b", CBChanLowHigh)]
 

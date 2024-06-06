@@ -1,6 +1,7 @@
 from ctypes import Structure
 from typing import Optional
 from collections.abc import Callable
+import time
 
 from .cbhw.device.nsp import *
 from .cbhw.params import Params
@@ -102,6 +103,14 @@ def set_all_channels_spk_config(
     device: NSPDevice, chtype: CBChannelType, attr: str, value
 ):
     device.configure_all_channels_spike(chtype, attr, value)
+
+def set_channel_continuous_raw_data(device: NSPDevice, chid: int, smpgroup: int, smpfilter: int):
+        set_channel_config(device, chid, attr="smpgroup", value=smpgroup)
+        time.sleep(0.2)
+        set_channel_config(device, chid, attr="smpfilter", value=smpfilter)
+        time.sleep(0.2)
+        set_channel_spk_config(device, chid, attr="enable", value=False)
+        time.sleep(0.2)
 
 
 def get_config(device: NSPDevice, force_refresh: bool = True) -> dict:

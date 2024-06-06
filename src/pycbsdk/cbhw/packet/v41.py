@@ -6,11 +6,15 @@ from .common import (
     CBChanLowHigh,
     CBScaling,
     CBFiltDesc,
+    print_pretty,
+    MAX_HOOPS,
+    MAX_UNITS
 )
 from .abstract import CBPacketConfigFixed
 from .header import CBPacketHeader
 
 
+@print_pretty
 class CBPacketSysProtocolMonitor(CBPacketConfigFixed):
     _fields_ = [
         ("header", CBPacketHeader),
@@ -28,6 +32,8 @@ class CBPacketSysProtocolMonitor(CBPacketConfigFixed):
         return CBPacketType.SYSPROTOCOLMONITOR
 
 
+
+@print_pretty
 class CBChanMonitor(Structure):
     _fields_ = [
         ("moninst", c_uint16),  # instrument of channel to monitor
@@ -36,10 +42,12 @@ class CBChanMonitor(Structure):
     ]
 
 
+@print_pretty
 class CBChanInfoUnion(Union):
     _fields_ = [("a", CBChanMonitor), ("b", CBChanLowHigh)]
 
 
+@print_pretty
 class CBPacketChanInfo(CBPacketConfigFixed):
     _fields_ = [
         ("header", CBPacketHeader),
@@ -103,8 +111,8 @@ class CBPacketChanInfo(CBPacketConfigFixed):
         ("amplrejpos", c_int16),  # Amplitude rejection positive value
         ("amplrejneg", c_int16),  # Amplitude rejection negative value
         ("refelecchan", c_uint32),  # Software reference electrode channel
-        ("unitmapping", CBManualUnitMapping * 5),  # manual unit mapping
-        ("spkhoops", CBHoop * 4 * 5),  # spike hoop sorting set
+        ("unitmapping", CBManualUnitMapping * MAX_UNITS),  # manual unit mapping
+        ("spkhoops", CBHoop * MAX_HOOPS * MAX_UNITS),  # spike hoop sorting set
     ]
 
     @property

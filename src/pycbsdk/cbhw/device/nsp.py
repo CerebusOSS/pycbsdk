@@ -22,6 +22,7 @@ is expected to access a client object that might also be accessed via the main t
 synchronization primitives should be used.
 
 """
+
 import copy
 from ctypes import Structure
 import logging
@@ -45,7 +46,9 @@ from pycbsdk.cbhw.packet.common import (
     CBNPlayMode,
     CBNPlayFlag,
     CBSpecialChan,
-    CBHoop
+    CBHoop,
+    MAX_UNITS,
+    MAX_HOOPS,
 )
 from pycbsdk.cbhw.params import Params
 from pycbsdk.cbhw.consts import CBError
@@ -289,6 +292,7 @@ class NSPDevice(DeviceInterface):
         self.register_config_callback(CBPacketType.SYSREPTRANSPORT, self._handle_sysrep)
         self.register_config_callback(CBPacketType.CHANREP, self._handle_chaninfo)
         self.register_config_callback(CBPacketType.CHANREPSMP, self._handle_chaninfo)
+        self.register_config_callback(CBPacketType.CHANREPSPKHPS, self._handle_chaninfo)
         self.register_config_callback(CBPacketType.CHANREPSPK, self._handle_chaninfo)
         self.register_config_callback(
             CBPacketType.CHANREPAUTOTHRESHOLD, self._handle_chaninfo
@@ -367,6 +371,11 @@ class NSPDevice(DeviceInterface):
             elif pkt.header.type == CBPacketType.CHANREPSMP:
                 self._config["channel_infos"][pkt.chan].smpfilter = pkt.smpfilter
                 self._config["channel_infos"][pkt.chan].smpgroup = pkt.smpgroup
+            elif pkt.header.type == CBPacketType.CHANREPSPKHPS:
+                # print('Spike HOOPS!')
+                self._config["channel_infos"][pkt.chan].spkhoops = pkt.spkhoops
+                # TODO: from CHANREPSPKHPS, .spkhoops, .unitmapping[n].bValid = pkt.spkhoops[n][0].valid
+                # self._config["channel_infos"][pkt.chan].spkhoops = pkt.
             else:
                 # TODO: from CHANREPNTRODEGROUP, .spkgroup
                 # TODO: from CHANREPSPKTHR, .spkthrlevel
@@ -552,13 +561,21 @@ class NSPDevice(DeviceInterface):
         """
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETSPKHPS
-        for un_id, hoop_dicts in attr_value.items():
-            for hp_id, hp in hoop_dicts.items():
-                pkt.spkhoops[un_id-1][hp_id-1] = CBHoop(
-                    valid=int(hp["enabled"] if "enabled" in hp else hp.get("valid", 1)),
-                    time=int(hp["time"]),
-                    min=int(hp["min"]),
-                    max=int(hp["max"])
+
+        for unit_id, hoop_dicts in attr_value.items():
+            if unit_id > MAX_UNITS:
+                # TODO: Should these also check for negative index?
+                raise IndexError(f"{unit_id} is greater than {MAX_UNITS}")
+            for hoop_id, hoop in hoop_dicts.items():
+                if hoop_id > MAX_HOOPS:
+                    raise IndexError(f"{hoop_id} is greater than {MAX_HOOPS}")
+                pkt.spkhoops[unit_id - 1][hoop_id - 1] = CBHoop(
+                    valid=int(
+                        hoop["enabled"] if "enabled" in hoop else hoop.get("valid", 1)
+                    ),
+                    time=int(hoop["time"]),
+                    min=int(hoop["min"]),
+                    max=int(hoop["max"]),
                 )
         self._send_packet(pkt)
 
@@ -602,11 +619,15 @@ class NSPDevice(DeviceInterface):
         attr_name: try label, smpgroup, autothreshold, lnc
         attr_value: overwrite with this value
         """
+        # this won't raise an exception if the name is not valid
         if attr_name.lower() in self._config_func_map:
             # self._config_events["chaninfo"].clear()
             # time.sleep(0.005)  # Sometimes setting the event is slower than the response?!
             self._config_func_map[attr_name.lower()](chid, attr_value)
             # self._config_events["chaninfo"].wait(timeout=0.02)
+        else:
+            # so let the user know, TODO: raise an exception?
+            print(f"{attr_name} is not a recognized name.")
 
     def configure_all_channels(self, chtype: CBChannelType, attr_name: str, attr_value):
         for chid, ch_info in self._config["channel_infos"].items():

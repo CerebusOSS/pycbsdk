@@ -33,6 +33,7 @@ class PacketHandlerThread(threading.Thread):
         self._continue = False
         self._packet_factory = CBPacketFactory(protocol=device._params.protocol)
         self._stop_event = threading.Event()
+        self.daemon = True
 
     def run(self) -> None:
         last_group_time = -1

@@ -4,7 +4,7 @@ import struct
 import numpy as np
 import numpy.typing
 from .. import config
-from .common import CBChannelType, CBPacketType, CBSpecialChan, CBManualUnitMapping
+from .common import CBChannelType, CBPacketType, CBSpecialChan, CBManualUnitMapping, print_pretty
 from .abstract import CBPacketVarDataNDArray, CBPacketVarLen, CBPacketConfigFixed
 
 if config.protocol is None:
@@ -59,6 +59,7 @@ __all__ = [
 
 # -- Concrete Packet Types -- #
 # Note: All concrete packet types start with `_fields_`
+@print_pretty
 class CBPacketSpike(CBPacketVarDataNDArray):
     _fields_ = [
         ("header", CBPacketHeader),

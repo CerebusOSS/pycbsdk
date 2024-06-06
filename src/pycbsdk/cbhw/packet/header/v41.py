@@ -1,6 +1,8 @@
 from ctypes import *
+from ..common import print_pretty
 
 
+@print_pretty
 class CBPacketHeader(Structure):
     _pack_ = 1
     _fields_ = [
