@@ -429,6 +429,7 @@ class CBPacketRefElecFiltInfo(CBPacketConfigFixed):
         return CBPacketType.REFELECFILTSET
 
 
+@print_pretty
 class CBPacketLNC(CBPacketConfigFixed):
     _fields_ = [
         ("header", CBPacketHeader),
