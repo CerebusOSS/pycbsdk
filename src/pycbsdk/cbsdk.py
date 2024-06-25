@@ -87,8 +87,8 @@ def set_all_channels_disable(device: NSPDevice, chtype: CBChannelType):
     device.configure_all_channels_disable(chtype)
 
 
-def set_channel_config(device: NSPDevice, chid: int, attr: str, value, timeout:float=0):
-    device.configure_channel(chid, attr, value, timeout=timeout)
+def set_channel_config(device: NSPDevice, chid: int, attr: str, value, timeout:float=0, verify:bool=False):
+    device.configure_channel(chid, attr, value, timeout=timeout, verify=verify)
 
 
 def set_all_channels_config(device: NSPDevice, chtype: CBChannelType, attr: str, value):
@@ -104,10 +104,10 @@ def set_all_channels_spk_config(
 ):
     device.configure_all_channels_spike(chtype, attr, value)
 
-def set_channel_continuous_raw_data(device: NSPDevice, chid: int, smpgroup: int, smpfilter: int, timeout:float=0):
-        set_channel_config(device, chid, attr="smpgroup", value=smpgroup, timeout=0.1)
-        set_channel_config(device, chid, attr="smpfilter", value=smpfilter, timeout=0.1)
-        set_channel_spk_config(device, chid, attr="enable", value=False, timeout=0.1)
+def set_channel_continuous_raw_data(device: NSPDevice, chid: int, smpgroup: int, smpfilter: int, timeout:float=0, verfiy:bool = False):
+        set_channel_config(device, chid, attr="smpgroup", value=smpgroup, timeout=0.1, verify=verfiy)
+        set_channel_config(device, chid, attr="smpfilter", value=smpfilter, timeout=0.1, verify=verfiy)
+        set_channel_spk_config(device, chid, attr="enable", value=False, timeout=0.1) # , verify=verfiy)
 
 
 def get_config(device: NSPDevice, force_refresh: bool = True) -> dict:

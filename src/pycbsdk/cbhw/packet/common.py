@@ -237,6 +237,17 @@ class CBManualUnitMapping(Structure):
 
 @print_pretty
 class CBHoop(Structure):
+    
+    # Not needed now, but may need to add this to other data classes that may need comparisions
+    # Can probably make it cleaner with a decorator if needed throughout.
+    def __eq__(self, other):
+        if isinstance(other, CBHoop):
+            for field, _ in self._fields_:
+                if getattr(self, field) != getattr(other, field):
+                    return False
+            return True
+        return False
+    
     _pack_ = 1
     _fields_ = [
         ("valid", c_uint16),  # 0=undefined, 1 for valid
