@@ -7,6 +7,7 @@ from .. import config
 PKT_MAX_SIZE = 1024  # bytes
 MAX_UNITS = 5
 MAX_HOOPS = 4
+DEFAULT_TIMEOUT = 0.2
 
 # Class that uses the @print_pretty decorator
 # must provide a _fields_ list of tuples this is ("name", type)

@@ -782,10 +782,10 @@ class NSPDevice(DeviceInterface):
             # so let the user know, TODO: raise an exception?
             print(f"{attr_name} is not a recognized name.")
 
-    def configure_all_channels(self, chtype: CBChannelType, attr_name: str, attr_value):
+    def configure_all_channels(self, chtype: CBChannelType, attr_name: str, attr_value, timeout: float, verify: bool):
         for chid, ch_info in self._config["channel_infos"].items():
             if self._config["channel_types"][chid] == chtype:
-                self.configure_channel(chid, attr_name, attr_value)
+                self.configure_channel(chid, attr_name, attr_value, timeout, verify)
 
     def configure_channel_spike(
         self, chid: int, attr_name: str, attr_value: any, timeout: float = 0
@@ -801,11 +801,11 @@ class NSPDevice(DeviceInterface):
         # self._config_events["chaninfo"].wait(timeout=0.02)
 
     def configure_all_channels_spike(
-        self, chtype: CBChannelType, attr_name: str, attr_value
+        self, chtype: CBChannelType, attr_name: str, attr_value, timeout: float
     ):
         for chid, ch_info in self._config["channel_infos"].items():
             if self._config["channel_types"][chid] == chtype:
-                self.configure_channel_spike(chid, attr_name, attr_value)
+                self.configure_channel_spike(chid, attr_name, attr_value, timeout)
 
     def configure_channel_disable(self, chid: int):
         ch_pkt = copy.copy(self._config["channel_infos"][chid])
