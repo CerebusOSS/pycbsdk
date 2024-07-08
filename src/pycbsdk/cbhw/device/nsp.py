@@ -525,7 +525,7 @@ class NSPDevice(DeviceInterface):
         print(f"TODO: set {cfg_name} to {cfg_value}")
 
     def _toggle_channel_ainp_flag(
-        self, chid: int, flag: int, enable: bool, timeout: float = 0, verify: bool=False
+        self, chid: int, flag: int, enable: bool, timeout: float = 0
     ):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETAINP
@@ -535,9 +535,9 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
         success = self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
-        if verify:
+        if timeout > 0:
             # TODO: Not sure if force_refresh needs to be True or if False is OK.
-            self.get_config(timeout=0.5, force_refresh=True)
+            self.get_config(timeout=2.0, force_refresh=False)
 
             if (success and (timeout > 0)):
                 if (pkt.ainpopts != self._config["channel_infos"][chid].ainpopts):
@@ -546,18 +546,18 @@ class NSPDevice(DeviceInterface):
                 raise RuntimeError(f"Valid packet response NOT received. Success is {success}")
 
     def _configure_channel_smpgroup(
-        self, chid: int, attr_value: int, timeout: float = 0, verify: bool=False
+        self, chid: int, attr_value: int, timeout: float = 0
     ):
         if attr_value in [0, 5]:
             # Disable raw when setting group to 0 or 5
             self._toggle_channel_ainp_flag(
-                chid, CBAnaInpOpts.refelec_rawstream, False, timeout, verify=verify
+                chid, CBAnaInpOpts.refelec_rawstream, False, timeout
             )
             time.sleep(0.005)
         elif attr_value == 6:
             # Enable raw. Note: We do not first check that 5 is not enabled.
             self._toggle_channel_ainp_flag(
-                chid, CBAnaInpOpts.refelec_rawstream, True, timeout, verify=verify
+                chid, CBAnaInpOpts.refelec_rawstream, True, timeout
             )
             time.sleep(0.005)
 
@@ -570,9 +570,9 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
         success = self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
-        if verify:
+        if timeout > 0:
             # TODO: Not sure if force_refresh needs to be True or if False is OK.
-            self.get_config(timeout=0.5, force_refresh=True)
+            self.get_config(timeout=2.0, force_refresh=False)
 
             if (success and (timeout > 0)):
                 if (
@@ -585,7 +585,7 @@ class NSPDevice(DeviceInterface):
                 raise RuntimeError(f"Valid packet response NOT received. Success is {success}")
 
     def _configure_channel_autothreshold(
-        self, chid: int, attr_value: int, timeout: float = 0.0, verify: bool=False
+        self, chid: int, attr_value: int, timeout: float = 0.0
     ):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETAUTOTHRESHOLD
@@ -638,7 +638,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
         self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
-    def _configure_channel_label(self, chid: int, attr_value: str, timeout: float = 0, verify: bool=False):
+    def _configure_channel_label(self, chid: int, attr_value: str, timeout: float = 0):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETLABEL
         pkt.label = attr_value
@@ -647,7 +647,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
         self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
-    def _configure_channel_lnc(self, chid: int, attr_value: int, timeout: float = 0, verify: bool=True):
+    def _configure_channel_lnc(self, chid: int, attr_value: int, timeout: float = 0):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETAINP
         pkt.ainpopts &= ~CBAnaInpOpts.lnc_mask
@@ -657,9 +657,9 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
         success = self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
-        if verify:
+        if timeout > 0:
             # TODO: Not sure if force_refresh needs to be True or if False is OK.
-            self.get_config(timeout=0.5, force_refresh=True)
+            self.get_config(timeout=2.0, force_refresh=False)
 
             if (success and (timeout > 0)):
                 if pkt.ainpopts != self._config["channel_infos"][chid].ainpopts:
@@ -667,7 +667,7 @@ class NSPDevice(DeviceInterface):
             else:
                 raise RuntimeError(f"Valid packet response NOT received. Success is {success}")
 
-    def _configure_channel_lnc_rate(self, chid: int, attr_value: int, timeout: float, verify: bool=False) -> None:
+    def _configure_channel_lnc_rate(self, chid: int, attr_value: int, timeout: float) -> None:
         pkt = copy.copy(self._config["channel_infos"][chid])
 
         pkt.lncrate = LNCRate.GetLNCRate(attr_value)
@@ -676,7 +676,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
         success = self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
-        if verify:
+        if timeout > 0:
             if (success and (timeout > 0)):
                 if pkt.lncrate != self._config["channel_infos"][chid].lncrate:
                     raise RuntimeError("Packet response contents do not match expected values.")
@@ -684,7 +684,7 @@ class NSPDevice(DeviceInterface):
                 raise RuntimeError(f"Valid packet response NOT received. Success is {success}")
 
     def _set_lnc_global_config(
-        self, chid: int, attr_value: int = 60, timeout: float = 0, verify: bool=False
+        self, chid: int, attr_value: int = 60, timeout: float = 0
     ):
         pkt = self.packet_factory.make_packet(
             data=None,
@@ -699,7 +699,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
         success = self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
-        if verify:
+        if timeout > 0:
             if (success and (timeout > 0)):
                 if (
                     (pkt.lncFreq != self._config["channel_infos"][chid].lncFreq)
@@ -716,18 +716,17 @@ class NSPDevice(DeviceInterface):
                 raise RuntimeError(f"Valid packet response NOT received. Success is {success}")
 
     def _configure_channel_dcoffset(
-        self, chid: int, attr_value: bool, timeout: float = 0.0, verify:bool=False
+        self, chid: int, attr_value: bool, timeout: float = 0.0
     ):
         self._toggle_channel_ainp_flag(
             chid=chid,
             flag=CBAnaInpOpts.refelec_offsetcorrect,
             enable=not not attr_value,
             timeout=timeout,
-            verify=verify
         )
 
     def _configure_channel_smpfilter(
-        self, chid: int, attr_value: int, timeout: float = 0.0, verify: bool=False
+        self, chid: int, attr_value: int, timeout: float = 0.0
     ):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.smpfilter = attr_value
@@ -735,9 +734,9 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
         success = self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
-        if verify:
+        if timeout > 0:
             # TODO: Not sure if force_refresh needs to be True or if False is OK.
-            self.get_config(timeout=0.5, force_refresh=True)
+            self.get_config(timeout=2.0, force_refresh=False)
 
             if (success and (timeout > 0)):
                 if pkt.smpfilter != self._config["channel_infos"][chid].smpfilter:
@@ -762,7 +761,7 @@ class NSPDevice(DeviceInterface):
         self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
     def configure_channel(
-        self, chid: int, attr_name: str, attr_value, timeout: float = 0, verify: bool=False
+        self, chid: int, attr_name: str, attr_value, timeout: float = 0
     ):
         """
         attr_name: try label, smpgroup, autothreshold, lnc
@@ -776,16 +775,16 @@ class NSPDevice(DeviceInterface):
         if attr_name.lower() in self._config_func_map:
             # self._config_events["chaninfo"].clear()
             # time.sleep(0.005)  # Sometimes setting the event is slower than the response?!
-            self._config_func_map[attr_name.lower()](chid, attr_value, timeout, verify)
+            self._config_func_map[attr_name.lower()](chid, attr_value, timeout)
             # self._config_events["chaninfo"].wait(timeout=0.02)
         else:
             # so let the user know, TODO: raise an exception?
             print(f"{attr_name} is not a recognized name.")
 
-    def configure_all_channels(self, chtype: CBChannelType, attr_name: str, attr_value, timeout: float, verify: bool):
+    def configure_all_channels(self, chtype: CBChannelType, attr_name: str, attr_value, timeout: float):
         for chid, ch_info in self._config["channel_infos"].items():
             if self._config["channel_types"][chid] == chtype:
-                self.configure_channel(chid, attr_name, attr_value, timeout, verify)
+                self.configure_channel(chid, attr_name, attr_value, timeout)
 
     def configure_channel_spike(
         self, chid: int, attr_name: str, attr_value: any, timeout: float = 0
@@ -797,7 +796,7 @@ class NSPDevice(DeviceInterface):
         elif attr_name.lower().startswith("autothresh"):
             self._configure_channel_autothreshold(chid, attr_value, timeout)
         elif attr_name.lower().startswith("hoops"):
-            self._configure_channel_hoops(chid, attr_value)
+            self._configure_channel_hoops(chid, attr_value, timeout)
         # self._config_events["chaninfo"].wait(timeout=0.02)
 
     def configure_all_channels_spike(

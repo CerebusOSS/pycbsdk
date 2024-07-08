@@ -87,12 +87,12 @@ def set_all_channels_disable(device: NSPDevice, chtype: CBChannelType):
     device.configure_all_channels_disable(chtype)
 
 
-def set_channel_config(device: NSPDevice, chid: int, attr: str, value, timeout: float=DEFAULT_TIMEOUT, verify: bool=False):
-    device.configure_channel(chid, attr, value, timeout=timeout, verify=verify)
+def set_channel_config(device: NSPDevice, chid: int, attr: str, value, timeout: float=DEFAULT_TIMEOUT):
+    device.configure_channel(chid, attr, value, timeout=timeout)
 
 
-def set_all_channels_config(device: NSPDevice, chtype: CBChannelType, attr: str, value, timeout: float=DEFAULT_TIMEOUT, verify: bool=False):
-    device.configure_all_channels(chtype, attr, value, timeout, verify)
+def set_all_channels_config(device: NSPDevice, chtype: CBChannelType, attr: str, value, timeout: float=DEFAULT_TIMEOUT):
+    device.configure_all_channels(chtype, attr, value, timeout)
 
 
 def set_channel_spk_config(device: NSPDevice, chid: int, attr: str, value, timeout: float=DEFAULT_TIMEOUT):
@@ -100,13 +100,13 @@ def set_channel_spk_config(device: NSPDevice, chid: int, attr: str, value, timeo
 
 
 def set_all_channels_spk_config(
-    device: NSPDevice, chtype: CBChannelType, attr: str, value
+    device: NSPDevice, chtype: CBChannelType, attr: str, value, timeout: float=DEFAULT_TIMEOUT
 ):
-    device.configure_all_channels_spike(chtype, attr, value)
+    device.configure_all_channels_spike(chtype, attr, value, timeout)
 
-def set_channel_continuous_raw_data(device: NSPDevice, chid: int, smpgroup: int, smpfilter: int, timeout: float=DEFAULT_TIMEOUT, verfiy: bool=False):
-        set_channel_config(device, chid, attr="smpgroup", value=smpgroup, timeout=timeout, verify=verfiy)
-        set_channel_config(device, chid, attr="smpfilter", value=smpfilter, timeout=timeout, verify=verfiy)
+def set_channel_continuous_raw_data(device: NSPDevice, chid: int, smpgroup: int, smpfilter: int, timeout: float=DEFAULT_TIMEOUT):
+        set_channel_config(device, chid, attr="smpgroup", value=smpgroup, timeout=timeout)
+        set_channel_config(device, chid, attr="smpfilter", value=smpfilter, timeout=timeout)
         set_channel_spk_config(device, chid, attr="enable", value=False, timeout=timeout)
 
 
