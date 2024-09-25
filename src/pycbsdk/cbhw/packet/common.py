@@ -1,9 +1,55 @@
 from ctypes import *
+from ctypes import _SimpleCData  # not included with *, supposed to be 'private'
 from enum import IntEnum
 from .. import config
 
 
 PKT_MAX_SIZE = 1024  # bytes
+MAX_UNITS = 5
+MAX_HOOPS = 4
+DEFAULT_TIMEOUT = 0.2
+
+# Class that uses the @print_pretty decorator
+# must provide a _fields_ list of tuples this is ("name", type)
+def print_pretty(cls):
+    def print_values(self, newline: bool = False, level: int = 0) -> str:
+        indent = "    " * level
+
+        def format_field(field):
+            value = getattr(self, field[0])
+            if isinstance(value, Array):
+                return "{}: [{}]".format(
+                    field[0], ", ".join(format_value(item, level + 1) for item in value)
+                )
+            else:
+                return "{}: {}".format(field[0], format_value(value, level + 1))
+
+        def format_value(value, level):
+            if isinstance(value, Structure):
+                return "\n" + indent + print_values(value, True, level)
+            elif isinstance(value, Array):
+                return "[{}]".format(
+                    "".join(format_value(item, level + 1) for item in value)
+                )
+            elif isinstance(value, _SimpleCData):
+                # TODO this never hits, not sure why...
+                return str("Help")
+            else:
+                return str(value)
+
+        return "{}: {{{}}}".format(
+            self.__class__.__name__,
+            ("\n" if newline else ", ").join(
+                format_field(field) for field in self._fields_
+            ),
+        )
+
+    def __str__(self):
+        return self.print_values()
+
+    setattr(cls, "print_values", print_values)
+    setattr(cls, "__str__", __str__)
+    return cls
 
 
 class CBPacketType(IntEnum):
@@ -151,6 +197,7 @@ class CBTransport(IntEnum):
     ALL = 0xFFFF
 
 
+@print_pretty
 class CBScaling(Structure):
     _pack_ = 1
     _fields_ = [
@@ -163,6 +210,7 @@ class CBScaling(Structure):
     ]
 
 
+@print_pretty
 class CBFiltDesc(Structure):
     _pack_ = 1
     _fields_ = [
@@ -176,6 +224,7 @@ class CBFiltDesc(Structure):
     ]
 
 
+@print_pretty
 class CBManualUnitMapping(Structure):
     _pack_ = 1
     _fields_ = [
@@ -187,7 +236,19 @@ class CBManualUnitMapping(Structure):
     ]
 
 
+@print_pretty
 class CBHoop(Structure):
+    
+    # Not needed now, but may need to add this to other data classes that may need comparisions
+    # Can probably make it cleaner with a decorator if needed throughout.
+    def __eq__(self, other):
+        if isinstance(other, CBHoop):
+            for field, _ in self._fields_:
+                if getattr(self, field) != getattr(other, field):
+                    return False
+            return True
+        return False
+    
     _pack_ = 1
     _fields_ = [
         ("valid", c_uint16),  # 0=undefined, 1 for valid
@@ -197,6 +258,7 @@ class CBHoop(Structure):
     ]
 
 
+@print_pretty
 class CBChanLowHigh(Structure):
     _fields_ = [
         ("lowsamples", c_uint16),  # ??
@@ -205,6 +267,7 @@ class CBChanLowHigh(Structure):
     ]
 
 
+@print_pretty
 class CBChanMonitor(Structure):
     _fields_ = [
         ("monsource", c_uint32),  # address of channel to monitor
@@ -212,6 +275,7 @@ class CBChanMonitor(Structure):
     ]
 
 
+@print_pretty
 class CBChanInfoUnion(Union):
     _fields_ = [("a", CBChanMonitor), ("b", CBChanLowHigh)]
 

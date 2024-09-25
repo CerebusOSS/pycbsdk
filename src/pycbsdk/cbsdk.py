@@ -1,10 +1,11 @@
 from ctypes import Structure
 from typing import Optional
 from collections.abc import Callable
+import time
 
 from .cbhw.device.nsp import *
 from .cbhw.params import Params
-from .cbhw.packet.common import CBPacketType, CBChannelType
+from .cbhw.packet.common import CBPacketType, CBChannelType, DEFAULT_TIMEOUT
 
 
 """
@@ -86,22 +87,27 @@ def set_all_channels_disable(device: NSPDevice, chtype: CBChannelType):
     device.configure_all_channels_disable(chtype)
 
 
-def set_channel_config(device: NSPDevice, chid: int, attr: str, value):
-    device.configure_channel(chid, attr, value)
+def set_channel_config(device: NSPDevice, chid: int, attr: str, value, timeout: float=DEFAULT_TIMEOUT):
+    device.configure_channel(chid, attr, value, timeout=timeout)
 
 
-def set_all_channels_config(device: NSPDevice, chtype: CBChannelType, attr: str, value):
-    device.configure_all_channels(chtype, attr, value)
+def set_all_channels_config(device: NSPDevice, chtype: CBChannelType, attr: str, value, timeout: float=DEFAULT_TIMEOUT):
+    device.configure_all_channels(chtype, attr, value, timeout)
 
 
-def set_channel_spk_config(device: NSPDevice, chid: int, attr: str, value):
-    device.configure_channel_spike(chid, attr, value)
+def set_channel_spk_config(device: NSPDevice, chid: int, attr: str, value, timeout: float=DEFAULT_TIMEOUT):
+    device.configure_channel_spike(chid, attr, value, timeout)
 
 
 def set_all_channels_spk_config(
-    device: NSPDevice, chtype: CBChannelType, attr: str, value
+    device: NSPDevice, chtype: CBChannelType, attr: str, value, timeout: float=DEFAULT_TIMEOUT
 ):
-    device.configure_all_channels_spike(chtype, attr, value)
+    device.configure_all_channels_spike(chtype, attr, value, timeout)
+
+def set_channel_continuous_raw_data(device: NSPDevice, chid: int, smpgroup: int, smpfilter: int, timeout: float=DEFAULT_TIMEOUT):
+        set_channel_config(device, chid, attr="smpgroup", value=smpgroup, timeout=timeout)
+        set_channel_config(device, chid, attr="smpfilter", value=smpfilter, timeout=timeout)
+        set_channel_spk_config(device, chid, attr="enable", value=False, timeout=timeout)
 
 
 def get_config(device: NSPDevice, force_refresh: bool = True) -> dict:

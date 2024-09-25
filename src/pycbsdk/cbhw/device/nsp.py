@@ -22,13 +22,14 @@ is expected to access a client object that might also be accessed via the main t
 synchronization primitives should be used.
 
 """
+
 import copy
-from ctypes import Structure
+from ctypes import Structure, create_string_buffer
 import logging
 import queue
 import socket
 from collections.abc import Callable
-from aenum import IntEnum, Flag, IntFlag
+from enum import IntEnum, Flag, IntFlag
 from typing import Optional, Type
 import struct
 import threading
@@ -45,7 +46,9 @@ from pycbsdk.cbhw.packet.common import (
     CBNPlayMode,
     CBNPlayFlag,
     CBSpecialChan,
-    CBHoop
+    CBHoop,
+    MAX_UNITS,
+    MAX_HOOPS,
 )
 from pycbsdk.cbhw.params import Params
 from pycbsdk.cbhw.consts import CBError
@@ -130,6 +133,19 @@ class CBAnaInpOpts(IntEnum):
     refelec_rawstream = 0x00000040
     refelec_offsetcorrect = 0x00000100
 
+class CBAOutOpts(IntEnum):
+    AUDIO = 0x00000001
+    SCALE = 0x00000002
+    TRACK = 0x00000004
+    STATIC = 0x00000008
+    MONITOR_RAW = 0x00000010
+    MONITOR_LNC = 0x00000020
+    MONITOR_SMP = 0x00000040
+    MONITOR_SPK = 0x00000080
+    STIMULATE = 0x00000100
+    WAVEFORM = 0x00000200
+    EXTENSION = 0x00000400
+
 
 class CBDigInpCaps(IntEnum):  # TODO: Probably better captured by Flag class
     serialmask = 0x000000FF  # Bit mask used to detect RS232 Serial Baud Rates
@@ -212,6 +228,22 @@ class CBAInpSpk(IntFlag):
     PCASORT = PCAMANSORT | PCAAUTOSORT  # All PCA sorting algorithms
     ALLSORT = AUTOSORT | HOOPSORT | PCASORT  # All sorting algorithms
 
+class LNCRate:
+    lnc_rates = {
+        0: 0,
+        1: 1000,
+        10: 10000,
+        30: 30000,
+        60: 60000,
+    }
+    @staticmethod
+    def GetLNCRate(key) -> int:
+        try:
+            return LNCRate.lnc_rates[key]
+        except KeyError as e:
+            print("Error with LNC rate key.")
+            return 0
+
 
 # endregion
 
@@ -263,7 +295,10 @@ class NSPDevice(DeviceInterface):
             "autothreshold": self._configure_channel_autothreshold,
             "label": self._configure_channel_label,
             "lnc": self._configure_channel_lnc,
+            "lnc_rate": self._configure_channel_lnc_rate,
+            "global_lnc": self._set_lnc_global_config,
             "dc_offset": self._configure_channel_dcoffset,
+            "spkfilter": self._configure_channel_spkfilter,
         }
 
         # Receives broadcast UDP (or unicast targeting the adapter at client_addr).
@@ -289,6 +324,7 @@ class NSPDevice(DeviceInterface):
         self.register_config_callback(CBPacketType.SYSREPTRANSPORT, self._handle_sysrep)
         self.register_config_callback(CBPacketType.CHANREP, self._handle_chaninfo)
         self.register_config_callback(CBPacketType.CHANREPSMP, self._handle_chaninfo)
+        self.register_config_callback(CBPacketType.CHANREPSPKHPS, self._handle_chaninfo)
         self.register_config_callback(CBPacketType.CHANREPSPK, self._handle_chaninfo)
         self.register_config_callback(
             CBPacketType.CHANREPAUTOTHRESHOLD, self._handle_chaninfo
@@ -296,6 +332,10 @@ class NSPDevice(DeviceInterface):
         self.register_config_callback(
             CBPacketType.CHANREPREJECTAMPLITUDE, self._handle_chaninfo
         )
+        self.register_config_callback(CBPacketType.CHANREPAOUT, self._handle_chaninfo)
+        self.register_config_callback(CBPacketType.CHANREPSCALE, self._handle_chaninfo)
+        self.register_config_callback(CBPacketType.CHANREPDINP, self._handle_chaninfo)
+
         self.register_config_callback(CBPacketType.CHANREPAINP, self._handle_chaninfo)
         self.register_config_callback(CBPacketType.GROUPREP, self._handle_groupinfo)
         self.register_config_callback(CBPacketType.PROCREP, self._handle_procinfo)
@@ -367,6 +407,19 @@ class NSPDevice(DeviceInterface):
             elif pkt.header.type == CBPacketType.CHANREPSMP:
                 self._config["channel_infos"][pkt.chan].smpfilter = pkt.smpfilter
                 self._config["channel_infos"][pkt.chan].smpgroup = pkt.smpgroup
+            elif pkt.header.type == CBPacketType.CHANREPSPKHPS:
+                self._config["channel_infos"][pkt.chan].spkhoops = pkt.spkhoops
+            elif pkt.header.type == CBPacketType.CHANREPAOUT:
+                self._config["channel_infos"][pkt.chan].aoutopts = pkt.aoutopts
+                # self._config["channel_infos"][pkt.chan].union.a.moninst = pkt.moninst
+                # self._config["channel_infos"][pkt.chan].union.a.monchan = pkt.monchan
+            elif pkt.header.type == CBPacketType.CHANREPSCALE:
+                self._config["channel_infos"][pkt.chan].scalein = pkt.scalein
+                self._config["channel_infos"][pkt.chan].scaleout = pkt.scaleout
+            elif pkt.header.type == CBPacketType.CHANREPDINP:
+                # TODO: NOTE: Need extra check if this is for serial or digital?
+                self._config["channel_infos"][pkt.chan].dinpopts = pkt.dinpopts
+                self._config["channel_infos"][pkt.chan].eopchar = pkt.eopchar
             else:
                 # TODO: from CHANREPNTRODEGROUP, .spkgroup
                 # TODO: from CHANREPSPKTHR, .spkthrlevel
@@ -497,21 +550,38 @@ class NSPDevice(DeviceInterface):
     def configure(self, cfg_name, cfg_value):
         print(f"TODO: set {cfg_name} to {cfg_value}")
 
-    def _toggle_channel_ainp_flag(self, chid: int, flag: int, enable: bool):
+    def _toggle_channel_ainp_flag(
+        self, chid: int, flag: int, enable: bool, timeout: float = 0
+    ):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETAINP
         pkt.ainpopts &= ~flag  # Always unset first
         pkt.ainpopts |= flag if enable else 0  # Then re-apply or not
-        self._send_packet(pkt)
 
-    def _configure_channel_smpgroup(self, chid: int, attr_value: int):
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=2.0, force_refresh=True)
+
+            if (pkt.ainpopts != self._config["channel_infos"][chid].ainpopts):
+                raise RuntimeError("Packet response contents do not match expected values.")
+            else:
+                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+
+    def _configure_channel_smpgroup(
+        self, chid: int, attr_value: int, timeout: float = 0
+    ):
         if attr_value in [0, 5]:
             # Disable raw when setting group to 0 or 5
-            self._toggle_channel_ainp_flag(chid, CBAnaInpOpts.refelec_rawstream, False)
+            self._toggle_channel_ainp_flag(
+                chid, CBAnaInpOpts.refelec_rawstream, False, timeout
+            )
             time.sleep(0.005)
         elif attr_value == 6:
             # Enable raw. Note: We do not first check that 5 is not enabled.
-            self._toggle_channel_ainp_flag(chid, CBAnaInpOpts.refelec_rawstream, True)
+            self._toggle_channel_ainp_flag(
+                chid, CBAnaInpOpts.refelec_rawstream, True, timeout
+            )
             time.sleep(0.005)
 
         pkt = copy.copy(self._config["channel_infos"][chid])
@@ -519,17 +589,33 @@ class NSPDevice(DeviceInterface):
         pkt.smpgroup = attr_value
         # safe lowpass digital filter for smpgroups 1-4. Otherwise, disable filter.
         pkt.smpfilter = {1: 5, 2: 6, 3: 7, 4: 10}.get(attr_value, 0)
-        self._send_packet(pkt)
 
-    def _configure_channel_autothreshold(self, chid: int, attr_value: int):
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=2.0, force_refresh=True)
+
+            if (
+                pkt.smpgroup != self._config["channel_infos"][chid].smpgroup
+                ) or (
+                    pkt.smpfilter != self._config["channel_infos"][chid].smpfilter
+                    ):
+                raise RuntimeError("Packet response contents do not match expected values.")
+            else:
+                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+
+    def _configure_channel_autothreshold(
+        self, chid: int, attr_value: int, timeout: float = 0.0
+    ):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETAUTOTHRESHOLD
         # pkt.header.dlen = cbPKTDLEN_CHANINFOSHORT
         pkt.spkopts &= ~CBAInpSpk.THRAUTO.value
         pkt.spkopts |= CBAInpSpk.THRAUTO.value if attr_value else 0
-        self._send_packet(pkt)
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+        self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
-    def _configure_channel_hoops(self, chid: int, attr_value: dict):
+    def _configure_channel_hoops(self, chid: int, attr_value: dict, timeout: float = 0):
         """
         Args:
             chid: 1-based channel index
@@ -552,41 +638,177 @@ class NSPDevice(DeviceInterface):
         """
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETSPKHPS
-        for un_id, hoop_dicts in attr_value.items():
-            for hp_id, hp in hoop_dicts.items():
-                pkt.spkhoops[un_id-1][hp_id-1] = CBHoop(
-                    valid=int(hp["enabled"] if "enabled" in hp else hp.get("valid", 1)),
-                    time=int(hp["time"]),
-                    min=int(hp["min"]),
-                    max=int(hp["max"])
-                )
-        self._send_packet(pkt)
 
-    def _configure_channel_label(self, chid: int, attr_value: str):
+        for unit_id, hoop_dicts in attr_value.items():
+            if unit_id > MAX_UNITS:
+                # TODO: Should these also check for negative index?
+                raise IndexError(f"{unit_id} is greater than {MAX_UNITS}")
+            for hoop_id, hoop in hoop_dicts.items():
+                if hoop_id > MAX_HOOPS:
+                    raise IndexError(f"{hoop_id} is greater than {MAX_HOOPS}")
+                pkt.spkhoops[unit_id - 1][hoop_id - 1] = CBHoop(
+                    valid=int(
+                        hoop["enabled"] if "enabled" in hoop else hoop.get("valid", 1)
+                    ),
+                    time=int(hoop["time"]),
+                    min=int(hoop["min"]),
+                    max=int(hoop["max"]),
+                )
+
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+        self._send_packet(pkt=pkt, event=event, timeout=timeout)
+
+    def _configure_channel_label(self, chid: int, attr_value: str, timeout: float = 0):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETLABEL
-        pkt.label = attr_value
+        pkt.label = bytes(create_string_buffer(attr_value.encode('utf-8'), 16))
         # TODO: pkt.userflags
         # TODO: pkt.position
-        self._send_packet(pkt)
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+        self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
-    def _configure_channel_lnc(self, chid: int, attr_value: int):
-        self._toggle_channel_ainp_flag(chid, CBAnaInpOpts.lnc_mask, not not attr_value)
-        # pkt.lncrate ??
-        # pkt.refelecchan
+    def _configure_channel_lnc(self, chid: int, attr_value: int, timeout: float = 0):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.header.type = CBPacketType.CHANSETAINP
+        pkt.ainpopts &= ~CBAnaInpOpts.lnc_mask
+        if attr_value:
+            pkt.ainpopts |= CBAnaInpOpts.lnc_runsoft
 
-    def _configure_channel_dcoffset(self, chid: int, attr_value: bool):
-        self._toggle_channel_ainp_flag(
-            chid, CBAnaInpOpts.refelec_offsetcorrect, not not attr_value
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=2.0, force_refresh=True)
+
+            if pkt.ainpopts != self._config["channel_infos"][chid].ainpopts:
+                raise RuntimeError("Packet response contents do not match expected values.")
+            else:
+                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+
+    def _configure_channel_lnc_rate(self, chid: int, attr_value: int, timeout: float) -> None:
+        pkt = copy.copy(self._config["channel_infos"][chid])
+
+        pkt.lncrate = LNCRate.GetLNCRate(attr_value)
+        pkt.header.type = CBPacketType.CHANSETAINP
+
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=2.0, force_refresh=True)
+
+            if pkt.lncrate != self._config["channel_infos"][chid].lncrate:
+                raise RuntimeError("Packet response contents do not match expected values.")
+            else:
+                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+
+    def _set_lnc_global_config(
+        self, chid: int, attr_value: int = 60, timeout: float = 0
+    ):
+        pkt = self.packet_factory.make_packet(
+            data=None,
+            chid=CBSpecialChan.CONFIGURATION,
+            pkt_type=CBPacketType.LNCSET,
         )
 
-    def _configure_channel_smpfilter(self, chid: int, attr_value: int):
+        pkt.lncFreq = attr_value
+        pkt.lncRefChan = chid  # which channel do we look at as the ref for LNC?
+        pkt.lncGlobalMode = 0  # Central sets this to zero, just doing the same here.
+        #  What is the type of event this should be configure for?
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=2.0, force_refresh=True)
+
+            if (
+                (pkt.lncFreq != self._config["channel_infos"][chid].lncFreq)
+                or (
+                    pkt.lncRefChan != self._config["channel_infos"][chid].lncRefChan
+                )
+                or (
+                    pkt.lncGlobalMode
+                    != self._config["channel_infos"][chid].lncGlobalMode
+                )
+            ):
+                raise RuntimeError("Packet response contents do not match expected values.")
+            else:
+                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+
+    def _configure_channel_dcoffset(
+        self, chid: int, attr_value: bool, timeout: float = 0.0
+    ):
+        self._toggle_channel_ainp_flag(
+            chid=chid,
+            flag=CBAnaInpOpts.refelec_offsetcorrect,
+            enable=not not attr_value,
+            timeout=timeout,
+        )
+    
+    def _configure_channel_spkfilter(
+            self, chid: int, attr_value: int, timeout: float = 0.0
+    ):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.spkfilter = attr_value
+        pkt.header.type = CBPacketType.CHANSETSPK
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=2.0, force_refresh=True)
+
+            if pkt.spkfilter != self._config["channel_infos"][chid].spkfilter:
+                raise RuntimeError("Packet response contents do not match expected values.")
+            else:
+                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+
+    def _configure_channel_analogout(
+            self, chid: int, attr_value: int, timeout: float = 0.0
+    ):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.aoutopts = attr_value
+        pkt.header.type = CBPacketType.CHANSETAOUT
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=2.0, force_refresh=True)
+
+            if pkt.aoutopts != self._config["channel_infos"][chid].aoutopts:
+                raise RuntimeError("Packet response contents do not match expected values.")
+            else:
+                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+    
+    def _configure_channel_digital_input(
+        self, chid: int, attr_value: int, timeout: float = 0.0
+    ):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.dinpopts = attr_value
+        pkt.header.type = CBPacketType.CHANSETDINP
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=2.0, force_refresh=True)
+
+            if pkt.dinpopts != self._config["channel_infos"][chid].dinpopts:
+                raise RuntimeError("Packet response contents do not match expected values.")
+            else:
+                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+
+    def _configure_channel_smpfilter(
+        self, chid: int, attr_value: int, timeout: float = 0.0
+    ):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.smpfilter = attr_value
         pkt.header.type = CBPacketType.CHANSETSMP
-        self._send_packet(pkt)
+        event = self._config_events["chaninfo"] if timeout > 0 else None
 
-    def _configure_channel_enable_spike(self, chid: int, attr_value: bool):
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=2.0, force_refresh=True)
+
+            if pkt.smpfilter != self._config["channel_infos"][chid].smpfilter:
+                raise RuntimeError("Packet response contents do not match expected values.")
+            else:
+                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+
+    def _configure_channel_enable_spike(
+        self, chid: int, attr_value: bool, timeout: float = 0
+    ):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETSPK
         pkt.spkopts &= ~CBAInpSpk.EXTRACT.value
@@ -595,41 +817,56 @@ class NSPDevice(DeviceInterface):
             # Also reset sorting. Enable hoops by default.
             pkt.spkopts &= ~CBAInpSpk.ALLSORT.value
             pkt.spkopts |= CBAInpSpk.HOOPSORT.value
-        self._send_packet(pkt, self._config_events["chaninfo"])
 
-    def configure_channel(self, chid: int, attr_name: str, attr_value):
+        timeout = 0.1
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+        self._send_packet(pkt=pkt, event=event, timeout=timeout)
+
+    def configure_channel(
+        self, chid: int, attr_name: str, attr_value, timeout: float = 0
+    ):
         """
         attr_name: try label, smpgroup, autothreshold, lnc
         attr_value: overwrite with this value
+        timout: if set to non-zero value, network exchange become blocking,
+            and function call blocks until response is received or timeout
+            is reached
+            warning: can dramatically slow down network performance
         """
+        # this won't raise an exception if the name is not valid
         if attr_name.lower() in self._config_func_map:
             # self._config_events["chaninfo"].clear()
             # time.sleep(0.005)  # Sometimes setting the event is slower than the response?!
-            self._config_func_map[attr_name.lower()](chid, attr_value)
+            self._config_func_map[attr_name.lower()](chid, attr_value, timeout)
             # self._config_events["chaninfo"].wait(timeout=0.02)
+        else:
+            # so let the user know, TODO: raise an exception?
+            print(f"{attr_name} is not a recognized name.")
 
-    def configure_all_channels(self, chtype: CBChannelType, attr_name: str, attr_value):
+    def configure_all_channels(self, chtype: CBChannelType, attr_name: str, attr_value, timeout: float):
         for chid, ch_info in self._config["channel_infos"].items():
             if self._config["channel_types"][chid] == chtype:
-                self.configure_channel(chid, attr_name, attr_value)
+                self.configure_channel(chid, attr_name, attr_value, timeout)
 
-    def configure_channel_spike(self, chid: int, attr_name: str, attr_value):
+    def configure_channel_spike(
+        self, chid: int, attr_name: str, attr_value: any, timeout: float = 0
+    ):
         # self._config_events["chaninfo"].clear()
         # time.sleep(0.005)  # Sometimes setting the event is slower than the response?!
         if attr_name.lower().startswith("enable"):
-            self._configure_channel_enable_spike(chid, attr_value)
+            self._configure_channel_enable_spike(chid, attr_value, timeout)
         elif attr_name.lower().startswith("autothresh"):
-            self._configure_channel_autothreshold(chid, attr_value)
+            self._configure_channel_autothreshold(chid, attr_value, timeout)
         elif attr_name.lower().startswith("hoops"):
-            self._configure_channel_hoops(chid, attr_value)
+            self._configure_channel_hoops(chid, attr_value, timeout)
         # self._config_events["chaninfo"].wait(timeout=0.02)
 
     def configure_all_channels_spike(
-        self, chtype: CBChannelType, attr_name: str, attr_value
+        self, chtype: CBChannelType, attr_name: str, attr_value, timeout: float
     ):
         for chid, ch_info in self._config["channel_infos"].items():
             if self._config["channel_types"][chid] == chtype:
-                self.configure_channel_spike(chid, attr_name, attr_value)
+                self.configure_channel_spike(chid, attr_name, attr_value, timeout)
 
     def configure_channel_disable(self, chid: int):
         ch_pkt = copy.copy(self._config["channel_infos"][chid])

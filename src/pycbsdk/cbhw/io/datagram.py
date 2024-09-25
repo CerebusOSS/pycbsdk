@@ -110,6 +110,7 @@ class CerebusDatagramThread(threading.Thread, CerebusCommInterface):
         self._send_q: Optional[FlexiQueue] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._transport: Optional[asyncio.transports.BaseTransport] = None
+        self.daemon = True
 
     def run(self) -> None:
         self._loop = asyncio.new_event_loop()

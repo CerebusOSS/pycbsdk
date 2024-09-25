@@ -1,11 +1,13 @@
 from ctypes import *
 from .common import (
     CBPacketType,
+    print_pretty,
 )
 from .abstract import CBPacketConfigFixed
 from .header import CBPacketHeader
 
 
+@print_pretty
 class CBPacketSysInfo(CBPacketConfigFixed):
     _fields_ = [
         ("header", CBPacketHeader),
