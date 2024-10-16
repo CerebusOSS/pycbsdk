@@ -299,6 +299,7 @@ class NSPDevice(DeviceInterface):
             "global_lnc": self._set_lnc_global_config,
             "dc_offset": self._configure_channel_dcoffset,
             "spkfilter": self._configure_channel_spkfilter,
+            "spkthrlevel": self._configure_spk_threshold,
         }
 
         # Receives broadcast UDP (or unicast targeting the adapter at client_addr).
@@ -339,6 +340,8 @@ class NSPDevice(DeviceInterface):
         self.register_config_callback(CBPacketType.CHANREPLABEL, self._handle_chaninfo)
 
         self.register_config_callback(CBPacketType.CHANREPAINP, self._handle_chaninfo)
+        self.register_config_callback(CBPacketType.CHANREPSPKTHR, self._handle_chaninfo)
+
         self.register_config_callback(CBPacketType.GROUPREP, self._handle_groupinfo)
         self.register_config_callback(CBPacketType.PROCREP, self._handle_procinfo)
         self.register_config_callback(CBPacketType.NPLAYREP, self._handle_nplay)
@@ -429,11 +432,13 @@ class NSPDevice(DeviceInterface):
             elif pkt.header.type == CBPacketType.CHANREPLABEL:
                 self._config["channel_infos"][pkt.chan].label = pkt.label
                 self._config["channel_infos"][pkt.chan].userflags = pkt.userflags
-                
+            elif pkt.header.type == CBPacketType.CHANSETSPKTHR:
+                # TODO: from CHANREPSPKTHR, .spkthrlevel
+                self._config["channel_infos"][pkt.chan].spkthrlevel = pkt.spkthrlevel
+
 
             else:
                 # TODO: from CHANREPNTRODEGROUP, .spkgroup
-                # TODO: from CHANREPSPKTHR, .spkthrlevel
                 # TODO: from CHANREPDISP, .smpdispmin, .smpdispmax, .spkdispmax, .lncdispmax
                 # TODO: from CHANREPLABEL, .label, .userflags
                 # TODO: from CHANREPUNITOVERRIDES, .unitmapping
@@ -775,6 +780,22 @@ class NSPDevice(DeviceInterface):
                 raise RuntimeError("Packet response contents do not match expected values.")
             else:
                 raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+    
+    def _configure_spk_threshold(self, chid: int, attr_value: int, timeout: float = 0.0):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.spkthrlevel = attr_value
+        pkt.header.type = CBPacketType.CHANSETSPKTHR
+
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=2.0, force_refresh=True)
+
+            if pkt.spkthrlevel != self._config["channel_infos"][chid].spkthrlevel:
+                raise RuntimeError("Packet response contents do not match expected values.")
+            else:
+                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+
 
     def _configure_channel_analogout(
             self, chid: int, attr_value: int, timeout: float = 0.0
