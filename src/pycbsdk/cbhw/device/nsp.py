@@ -335,6 +335,8 @@ class NSPDevice(DeviceInterface):
         self.register_config_callback(CBPacketType.CHANREPAOUT, self._handle_chaninfo)
         self.register_config_callback(CBPacketType.CHANREPSCALE, self._handle_chaninfo)
         self.register_config_callback(CBPacketType.CHANREPDINP, self._handle_chaninfo)
+        self.register_config_callback(CBPacketType.CHANREPDOUT, self._handle_chaninfo)
+        self.register_config_callback(CBPacketType.CHANREPLABEL, self._handle_chaninfo)
 
         self.register_config_callback(CBPacketType.CHANREPAINP, self._handle_chaninfo)
         self.register_config_callback(CBPacketType.GROUPREP, self._handle_groupinfo)
@@ -420,6 +422,15 @@ class NSPDevice(DeviceInterface):
                 # TODO: NOTE: Need extra check if this is for serial or digital?
                 self._config["channel_infos"][pkt.chan].dinpopts = pkt.dinpopts
                 self._config["channel_infos"][pkt.chan].eopchar = pkt.eopchar
+            elif pkt.header.type == CBPacketType.CHANREPDOUT:
+                self._config["channel_infos"][pkt.chan].doutopts = pkt.doutopts
+                self._config["channel_infos"][pkt.chan].doutcaps = pkt.doutcaps
+                # TODO: .moninst, .monchan, .outvalue, more..., from union?
+            elif pkt.header.type == CBPacketType.CHANREPLABEL:
+                self._config["channel_infos"][pkt.chan].label = pkt.label
+                self._config["channel_infos"][pkt.chan].userflags = pkt.userflags
+                
+
             else:
                 # TODO: from CHANREPNTRODEGROUP, .spkgroup
                 # TODO: from CHANREPSPKTHR, .spkthrlevel
@@ -428,7 +439,6 @@ class NSPDevice(DeviceInterface):
                 # TODO: from CHANREPUNITOVERRIDES, .unitmapping
                 # TODO: from CHANREPSPKHPS, .spkhoops, .unitmapping[n].bValid = pkt.spkhoops[n][0].valid
                 # TODO: from CHANREPDINP, .dinpopts; NOTE: Need extra check if this is for serial or digital
-                # TODO: from CHANREPDOUT, .doutopts = pkt.doutopts & .doutcaps, .moninst, .monchan, .outvalue, more...
                 # TODO: from CHANREPAOUT, ... complicated
                 # TODO: from CHANREPSCALE, .scalin, .scalout
                 pass
@@ -665,7 +675,15 @@ class NSPDevice(DeviceInterface):
         # TODO: pkt.userflags
         # TODO: pkt.position
         event = self._config_events["chaninfo"] if timeout > 0 else None
-        self._send_packet(pkt=pkt, event=event, timeout=timeout)
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=2.0, force_refresh=True)
+
+            if pkt.label != self._config["channel_infos"][chid].label:
+                raise RuntimeError("Packet response contents do not match expected values.")
+            else:
+                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+            
+
 
     def _configure_channel_lnc(self, chid: int, attr_value: int, timeout: float = 0):
         pkt = copy.copy(self._config["channel_infos"][chid])
@@ -786,6 +804,22 @@ class NSPDevice(DeviceInterface):
             self.get_config(timeout=2.0, force_refresh=True)
 
             if pkt.dinpopts != self._config["channel_infos"][chid].dinpopts:
+                raise RuntimeError("Packet response contents do not match expected values.")
+            else:
+                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+    
+    def _configure_channel_digital_output(
+        self, chid: int, attr_value: int, timeout: float = 0.0
+    ):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.doutopts = attr_value
+        pkt.header.type = CBPacketType.CHANSETDOUT
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=2.0, force_refresh=True)
+
+            if pkt.doutopts != self._config["channel_infos"][chid].doutopts:
                 raise RuntimeError("Packet response contents do not match expected values.")
             else:
                 raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
