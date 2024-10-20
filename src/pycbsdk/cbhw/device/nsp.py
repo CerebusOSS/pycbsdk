@@ -73,6 +73,7 @@ cbNUM_DIGIN_CHANS = 1
 cbNUM_SERIAL_CHANS = 1
 cbNUM_DIGOUT_CHANS = 4
 # endregion
+GET_CONFIG_TIMEOUT = 2.0
 
 
 # region Enums
@@ -132,6 +133,7 @@ class CBAnaInpOpts(IntEnum):
     refelec_mask = 0x00000030
     refelec_rawstream = 0x00000040
     refelec_offsetcorrect = 0x00000100
+
 
 class CBAOutOpts(IntEnum):
     AUDIO = 0x00000001
@@ -228,6 +230,7 @@ class CBAInpSpk(IntFlag):
     PCASORT = PCAMANSORT | PCAAUTOSORT  # All PCA sorting algorithms
     ALLSORT = AUTOSORT | HOOPSORT | PCASORT  # All sorting algorithms
 
+
 class LNCRate:
     lnc_rates = {
         0: 0,
@@ -236,6 +239,7 @@ class LNCRate:
         30: 30000,
         60: 60000,
     }
+
     @staticmethod
     def GetLNCRate(key) -> int:
         try:
@@ -299,6 +303,7 @@ class NSPDevice(DeviceInterface):
             "global_lnc": self._set_lnc_global_config,
             "dc_offset": self._configure_channel_dcoffset,
             "spkfilter": self._configure_channel_spkfilter,
+            "spkthrlevel": self._configure_spk_threshold,
         }
 
         # Receives broadcast UDP (or unicast targeting the adapter at client_addr).
@@ -335,8 +340,12 @@ class NSPDevice(DeviceInterface):
         self.register_config_callback(CBPacketType.CHANREPAOUT, self._handle_chaninfo)
         self.register_config_callback(CBPacketType.CHANREPSCALE, self._handle_chaninfo)
         self.register_config_callback(CBPacketType.CHANREPDINP, self._handle_chaninfo)
+        self.register_config_callback(CBPacketType.CHANREPDOUT, self._handle_chaninfo)
+        self.register_config_callback(CBPacketType.CHANREPLABEL, self._handle_chaninfo)
 
         self.register_config_callback(CBPacketType.CHANREPAINP, self._handle_chaninfo)
+        self.register_config_callback(CBPacketType.CHANREPSPKTHR, self._handle_chaninfo)
+
         self.register_config_callback(CBPacketType.GROUPREP, self._handle_groupinfo)
         self.register_config_callback(CBPacketType.PROCREP, self._handle_procinfo)
         self.register_config_callback(CBPacketType.NPLAYREP, self._handle_nplay)
@@ -409,6 +418,7 @@ class NSPDevice(DeviceInterface):
                 self._config["channel_infos"][pkt.chan].smpgroup = pkt.smpgroup
             elif pkt.header.type == CBPacketType.CHANREPSPKHPS:
                 self._config["channel_infos"][pkt.chan].spkhoops = pkt.spkhoops
+                # TODO: .unitmapping[n].bValid = pkt.spkhoops[n][0].valid ??
             elif pkt.header.type == CBPacketType.CHANREPAOUT:
                 self._config["channel_infos"][pkt.chan].aoutopts = pkt.aoutopts
                 # self._config["channel_infos"][pkt.chan].union.a.moninst = pkt.moninst
@@ -420,17 +430,21 @@ class NSPDevice(DeviceInterface):
                 # TODO: NOTE: Need extra check if this is for serial or digital?
                 self._config["channel_infos"][pkt.chan].dinpopts = pkt.dinpopts
                 self._config["channel_infos"][pkt.chan].eopchar = pkt.eopchar
+            elif pkt.header.type == CBPacketType.CHANREPDOUT:
+                self._config["channel_infos"][pkt.chan].doutopts = pkt.doutopts
+                self._config["channel_infos"][pkt.chan].doutcaps = pkt.doutcaps
+                # TODO: .moninst, .monchan, .outvalue, more..., from union?
+            elif pkt.header.type == CBPacketType.CHANREPLABEL:
+                self._config["channel_infos"][pkt.chan].label = pkt.label
+                self._config["channel_infos"][pkt.chan].userflags = pkt.userflags
+            elif pkt.header.type == CBPacketType.CHANSETSPKTHR:
+                # TODO: from CHANREPSPKTHR, .spkthrlevel
+                self._config["channel_infos"][pkt.chan].spkthrlevel = pkt.spkthrlevel
+
             else:
                 # TODO: from CHANREPNTRODEGROUP, .spkgroup
-                # TODO: from CHANREPSPKTHR, .spkthrlevel
                 # TODO: from CHANREPDISP, .smpdispmin, .smpdispmax, .spkdispmax, .lncdispmax
-                # TODO: from CHANREPLABEL, .label, .userflags
                 # TODO: from CHANREPUNITOVERRIDES, .unitmapping
-                # TODO: from CHANREPSPKHPS, .spkhoops, .unitmapping[n].bValid = pkt.spkhoops[n][0].valid
-                # TODO: from CHANREPDINP, .dinpopts; NOTE: Need extra check if this is for serial or digital
-                # TODO: from CHANREPDOUT, .doutopts = pkt.doutopts & .doutcaps, .moninst, .monchan, .outvalue, more...
-                # TODO: from CHANREPAOUT, ... complicated
-                # TODO: from CHANREPSCALE, .scalin, .scalout
                 pass
         # print(f"handled chaninfo {pkt.chan} of type {hex(pkt.header.type)}")
         self._config_events["chaninfo"].set()
@@ -561,12 +575,16 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
-            if (pkt.ainpopts != self._config["channel_infos"][chid].ainpopts):
-                raise RuntimeError("Packet response contents do not match expected values.")
+            if pkt.ainpopts != self._config["channel_infos"][chid].ainpopts:
+                raise RuntimeError(
+                    "Packet response contents do not match expected values."
+                )
             else:
-                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+                raise RuntimeError(
+                    "Valid packet response NOT received, but packet contains expected values"
+                )
 
     def _configure_channel_smpgroup(
         self, chid: int, attr_value: int, timeout: float = 0
@@ -593,16 +611,18 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
-            if (
-                pkt.smpgroup != self._config["channel_infos"][chid].smpgroup
-                ) or (
-                    pkt.smpfilter != self._config["channel_infos"][chid].smpfilter
-                    ):
-                raise RuntimeError("Packet response contents do not match expected values.")
+            if (pkt.smpgroup != self._config["channel_infos"][chid].smpgroup) or (
+                pkt.smpfilter != self._config["channel_infos"][chid].smpfilter
+            ):
+                raise RuntimeError(
+                    "Packet response contents do not match expected values."
+                )
             else:
-                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+                raise RuntimeError(
+                    "Valid packet response NOT received, but packet contains expected values"
+                )
 
     def _configure_channel_autothreshold(
         self, chid: int, attr_value: int, timeout: float = 0.0
@@ -661,11 +681,21 @@ class NSPDevice(DeviceInterface):
     def _configure_channel_label(self, chid: int, attr_value: str, timeout: float = 0):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETLABEL
-        pkt.label = bytes(create_string_buffer(attr_value.encode('utf-8'), 16))
+        pkt.label = bytes(create_string_buffer(attr_value.encode("utf-8"), 16))
         # TODO: pkt.userflags
         # TODO: pkt.position
         event = self._config_events["chaninfo"] if timeout > 0 else None
-        self._send_packet(pkt=pkt, event=event, timeout=timeout)
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
+
+            if pkt.label != self._config["channel_infos"][chid].label:
+                raise RuntimeError(
+                    "Packet response contents do not match expected values."
+                )
+            else:
+                raise RuntimeError(
+                    "Valid packet response NOT received, but packet contains expected values"
+                )
 
     def _configure_channel_lnc(self, chid: int, attr_value: int, timeout: float = 0):
         pkt = copy.copy(self._config["channel_infos"][chid])
@@ -677,14 +707,20 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.ainpopts != self._config["channel_infos"][chid].ainpopts:
-                raise RuntimeError("Packet response contents do not match expected values.")
+                raise RuntimeError(
+                    "Packet response contents do not match expected values."
+                )
             else:
-                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+                raise RuntimeError(
+                    "Valid packet response NOT received, but packet contains expected values"
+                )
 
-    def _configure_channel_lnc_rate(self, chid: int, attr_value: int, timeout: float) -> None:
+    def _configure_channel_lnc_rate(
+        self, chid: int, attr_value: int, timeout: float
+    ) -> None:
         pkt = copy.copy(self._config["channel_infos"][chid])
 
         pkt.lncrate = LNCRate.GetLNCRate(attr_value)
@@ -693,12 +729,16 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.lncrate != self._config["channel_infos"][chid].lncrate:
-                raise RuntimeError("Packet response contents do not match expected values.")
+                raise RuntimeError(
+                    "Packet response contents do not match expected values."
+                )
             else:
-                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+                raise RuntimeError(
+                    "Valid packet response NOT received, but packet contains expected values"
+                )
 
     def _set_lnc_global_config(
         self, chid: int, attr_value: int = 60, timeout: float = 0
@@ -716,21 +756,23 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if (
                 (pkt.lncFreq != self._config["channel_infos"][chid].lncFreq)
-                or (
-                    pkt.lncRefChan != self._config["channel_infos"][chid].lncRefChan
-                )
+                or (pkt.lncRefChan != self._config["channel_infos"][chid].lncRefChan)
                 or (
                     pkt.lncGlobalMode
                     != self._config["channel_infos"][chid].lncGlobalMode
                 )
             ):
-                raise RuntimeError("Packet response contents do not match expected values.")
+                raise RuntimeError(
+                    "Packet response contents do not match expected values."
+                )
             else:
-                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+                raise RuntimeError(
+                    "Valid packet response NOT received, but packet contains expected values"
+                )
 
     def _configure_channel_dcoffset(
         self, chid: int, attr_value: bool, timeout: float = 0.0
@@ -741,9 +783,9 @@ class NSPDevice(DeviceInterface):
             enable=not not attr_value,
             timeout=timeout,
         )
-    
+
     def _configure_channel_spkfilter(
-            self, chid: int, attr_value: int, timeout: float = 0.0
+        self, chid: int, attr_value: int, timeout: float = 0.0
     ):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.spkfilter = attr_value
@@ -751,15 +793,40 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.spkfilter != self._config["channel_infos"][chid].spkfilter:
-                raise RuntimeError("Packet response contents do not match expected values.")
+                raise RuntimeError(
+                    "Packet response contents do not match expected values."
+                )
             else:
-                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+                raise RuntimeError(
+                    "Valid packet response NOT received, but packet contains expected values"
+                )
+
+    def _configure_spk_threshold(
+        self, chid: int, attr_value: int, timeout: float = 0.0
+    ):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.spkthrlevel = attr_value
+        pkt.header.type = CBPacketType.CHANSETSPKTHR
+
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
+
+            if pkt.spkthrlevel != self._config["channel_infos"][chid].spkthrlevel:
+                raise RuntimeError(
+                    "Packet response contents do not match expected values."
+                )
+            else:
+                raise RuntimeError(
+                    "Valid packet response NOT received, but packet contains expected values"
+                )
 
     def _configure_channel_analogout(
-            self, chid: int, attr_value: int, timeout: float = 0.0
+        self, chid: int, attr_value: int, timeout: float = 0.0
     ):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.aoutopts = attr_value
@@ -767,13 +834,17 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.aoutopts != self._config["channel_infos"][chid].aoutopts:
-                raise RuntimeError("Packet response contents do not match expected values.")
+                raise RuntimeError(
+                    "Packet response contents do not match expected values."
+                )
             else:
-                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
-    
+                raise RuntimeError(
+                    "Valid packet response NOT received, but packet contains expected values"
+                )
+
     def _configure_channel_digital_input(
         self, chid: int, attr_value: int, timeout: float = 0.0
     ):
@@ -783,12 +854,36 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.dinpopts != self._config["channel_infos"][chid].dinpopts:
-                raise RuntimeError("Packet response contents do not match expected values.")
+                raise RuntimeError(
+                    "Packet response contents do not match expected values."
+                )
             else:
-                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+                raise RuntimeError(
+                    "Valid packet response NOT received, but packet contains expected values"
+                )
+
+    def _configure_channel_digital_output(
+        self, chid: int, attr_value: int, timeout: float = 0.0
+    ):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.doutopts = attr_value
+        pkt.header.type = CBPacketType.CHANSETDOUT
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+
+        if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
+
+            if pkt.doutopts != self._config["channel_infos"][chid].doutopts:
+                raise RuntimeError(
+                    "Packet response contents do not match expected values."
+                )
+            else:
+                raise RuntimeError(
+                    "Valid packet response NOT received, but packet contains expected values"
+                )
 
     def _configure_channel_smpfilter(
         self, chid: int, attr_value: int, timeout: float = 0.0
@@ -799,12 +894,16 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.smpfilter != self._config["channel_infos"][chid].smpfilter:
-                raise RuntimeError("Packet response contents do not match expected values.")
+                raise RuntimeError(
+                    "Packet response contents do not match expected values."
+                )
             else:
-                raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
+                raise RuntimeError(
+                    "Valid packet response NOT received, but packet contains expected values"
+                )
 
     def _configure_channel_enable_spike(
         self, chid: int, attr_value: bool, timeout: float = 0
@@ -843,7 +942,9 @@ class NSPDevice(DeviceInterface):
             # so let the user know, TODO: raise an exception?
             print(f"{attr_name} is not a recognized name.")
 
-    def configure_all_channels(self, chtype: CBChannelType, attr_name: str, attr_value, timeout: float):
+    def configure_all_channels(
+        self, chtype: CBChannelType, attr_name: str, attr_value, timeout: float
+    ):
         for chid, ch_info in self._config["channel_infos"].items():
             if self._config["channel_types"][chid] == chtype:
                 self.configure_channel(chid, attr_name, attr_value, timeout)
@@ -1106,7 +1207,7 @@ class NSPDevice(DeviceInterface):
         # We don't do that here.
 
         logger.debug("Attempting to get_config")
-        _cfg = self.get_config(timeout=2.0)
+        _cfg = self.get_config(timeout=GET_CONFIG_TIMEOUT)
 
         if self._config["runlevel"] != CBRunLevel.RUNNING:
             # Central waits a full second between the reqconfigall and reset
