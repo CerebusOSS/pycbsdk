@@ -418,6 +418,7 @@ class NSPDevice(DeviceInterface):
                 self._config["channel_infos"][pkt.chan].smpgroup = pkt.smpgroup
             elif pkt.header.type == CBPacketType.CHANREPSPKHPS:
                 self._config["channel_infos"][pkt.chan].spkhoops = pkt.spkhoops
+                # TODO: .unitmapping[n].bValid = pkt.spkhoops[n][0].valid ??
             elif pkt.header.type == CBPacketType.CHANREPAOUT:
                 self._config["channel_infos"][pkt.chan].aoutopts = pkt.aoutopts
                 # self._config["channel_infos"][pkt.chan].union.a.moninst = pkt.moninst
@@ -443,12 +444,7 @@ class NSPDevice(DeviceInterface):
             else:
                 # TODO: from CHANREPNTRODEGROUP, .spkgroup
                 # TODO: from CHANREPDISP, .smpdispmin, .smpdispmax, .spkdispmax, .lncdispmax
-                # TODO: from CHANREPLABEL, .label, .userflags
                 # TODO: from CHANREPUNITOVERRIDES, .unitmapping
-                # TODO: from CHANREPSPKHPS, .spkhoops, .unitmapping[n].bValid = pkt.spkhoops[n][0].valid
-                # TODO: from CHANREPDINP, .dinpopts; NOTE: Need extra check if this is for serial or digital
-                # TODO: from CHANREPAOUT, ... complicated
-                # TODO: from CHANREPSCALE, .scalin, .scalout
                 pass
         # print(f"handled chaninfo {pkt.chan} of type {hex(pkt.header.type)}")
         self._config_events["chaninfo"].set()
