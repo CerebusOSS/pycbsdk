@@ -73,6 +73,7 @@ cbNUM_DIGIN_CHANS = 1
 cbNUM_SERIAL_CHANS = 1
 cbNUM_DIGOUT_CHANS = 4
 # endregion
+GET_CONFIG_TIMEOUT = 2.0
 
 
 # region Enums
@@ -576,7 +577,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if (pkt.ainpopts != self._config["channel_infos"][chid].ainpopts):
                 raise RuntimeError("Packet response contents do not match expected values.")
@@ -608,7 +609,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if (
                 pkt.smpgroup != self._config["channel_infos"][chid].smpgroup
@@ -681,7 +682,7 @@ class NSPDevice(DeviceInterface):
         # TODO: pkt.position
         event = self._config_events["chaninfo"] if timeout > 0 else None
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.label != self._config["channel_infos"][chid].label:
                 raise RuntimeError("Packet response contents do not match expected values.")
@@ -700,7 +701,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.ainpopts != self._config["channel_infos"][chid].ainpopts:
                 raise RuntimeError("Packet response contents do not match expected values.")
@@ -716,7 +717,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.lncrate != self._config["channel_infos"][chid].lncrate:
                 raise RuntimeError("Packet response contents do not match expected values.")
@@ -739,7 +740,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if (
                 (pkt.lncFreq != self._config["channel_infos"][chid].lncFreq)
@@ -774,7 +775,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.spkfilter != self._config["channel_infos"][chid].spkfilter:
                 raise RuntimeError("Packet response contents do not match expected values.")
@@ -789,7 +790,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.spkthrlevel != self._config["channel_infos"][chid].spkthrlevel:
                 raise RuntimeError("Packet response contents do not match expected values.")
@@ -806,7 +807,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.aoutopts != self._config["channel_infos"][chid].aoutopts:
                 raise RuntimeError("Packet response contents do not match expected values.")
@@ -822,7 +823,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.dinpopts != self._config["channel_infos"][chid].dinpopts:
                 raise RuntimeError("Packet response contents do not match expected values.")
@@ -838,7 +839,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.doutopts != self._config["channel_infos"][chid].doutopts:
                 raise RuntimeError("Packet response contents do not match expected values.")
@@ -854,7 +855,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
 
         if not self._send_packet(pkt=pkt, event=event, timeout=timeout):
-            self.get_config(timeout=2.0, force_refresh=True)
+            self.get_config(timeout=GET_CONFIG_TIMEOUT, force_refresh=True)
 
             if pkt.smpfilter != self._config["channel_infos"][chid].smpfilter:
                 raise RuntimeError("Packet response contents do not match expected values.")
@@ -1161,7 +1162,7 @@ class NSPDevice(DeviceInterface):
         # We don't do that here.
 
         logger.debug("Attempting to get_config")
-        _cfg = self.get_config(timeout=2.0)
+        _cfg = self.get_config(timeout=GET_CONFIG_TIMEOUT)
 
         if self._config["runlevel"] != CBRunLevel.RUNNING:
             # Central waits a full second between the reqconfigall and reset
