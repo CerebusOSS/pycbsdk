@@ -286,9 +286,7 @@ class NSPDevice(DeviceInterface):
         self._monitor_state["time"] = 1
 
         # Placeholders for IO
-        self._pkt_handler_thread = None
         self._sender_queue = None
-        self._receiver_queue = None
         self._io_thread = None
 
         self._register_basic_callbacks()
@@ -316,6 +314,10 @@ class NSPDevice(DeviceInterface):
             socket.gethostbyname(self._params.inst_addr),
             self._params.inst_port,
         )
+
+        # Start the packet handler thread. We don't expect it to receive any packets until `.connect()` is called.
+        self._pkt_handler_thread = PacketHandlerThread(self)
+        self._pkt_handler_thread.start()
 
     @property
     def device_addr(self) -> tuple[str, int]:
@@ -1136,18 +1138,13 @@ class NSPDevice(DeviceInterface):
 
     # region IO
     def connect(self, startup_sequence: bool = True) -> int:
-        self._receiver_queue = queue.SimpleQueue()
-
-        self._pkt_handler_thread = PacketHandlerThread(self._receiver_queue, self)
         self._io_thread = CerebusDatagramThread(
-            self._receiver_queue,
+            self._pkt_handler_thread.receiver_queue,
             self._local_addr,
             self._device_addr,
             self._params.protocol,
             self._params.recv_bufsize,
         )
-
-        self._pkt_handler_thread.start()
         self._io_thread.start()
         # _io_thread.start() returns immediately but takes a few moments until its send_q is created.
         time.sleep(0.5)
@@ -1184,9 +1181,6 @@ class NSPDevice(DeviceInterface):
 
         self._io_thread.join()
         self._pkt_handler_thread.join()
-
-        del self._receiver_queue
-        self._receiver_queue = None
 
         logger.info("Disconnected successfully.")
 
