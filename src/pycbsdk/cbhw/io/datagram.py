@@ -143,6 +143,7 @@ class CerebusDatagramThread(threading.Thread, CerebusCommInterface):
         )
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_DONTROUTE, True)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self._buff_size)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
         # sock.settimeout(10)
         # sock.setblocking(False)
         sock.bind(self._recv_addr)
