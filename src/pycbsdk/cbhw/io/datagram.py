@@ -146,7 +146,11 @@ class CerebusDatagramThread(threading.Thread, CerebusCommInterface):
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
         # sock.settimeout(10)
         # sock.setblocking(False)
-        sock.bind(self._recv_addr)
+        try:
+            sock.bind(self._recv_addr)
+        except OSError as e:
+            logger.error(f"Cannot bind to {self._recv_addr}. Central may have exclusive access to the port on "
+                         f"this machine. Error: {e}")
 
         loop = asyncio.get_event_loop()
         # Create a future that should only return when the UDP connection is lost
