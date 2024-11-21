@@ -1,7 +1,6 @@
 from ctypes import Structure
 from typing import Optional
 from collections.abc import Callable
-import time
 
 from .cbhw.device.nsp import *
 from .cbhw.params import Params

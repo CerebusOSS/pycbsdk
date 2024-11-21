@@ -1,5 +1,4 @@
 import sys
-import argparse
 import logging
 from pycbsdk import cbsdk
 import time

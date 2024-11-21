@@ -1,7 +1,6 @@
 from ctypes import *
 from ctypes import _SimpleCData  # not included with *, supposed to be 'private'
 from enum import IntEnum
-from .. import config
 
 
 PKT_MAX_SIZE = 1024  # bytes

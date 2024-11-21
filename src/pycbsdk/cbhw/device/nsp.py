@@ -26,11 +26,10 @@ synchronization primitives should be used.
 import copy
 from ctypes import Structure, create_string_buffer
 import logging
-import queue
 import socket
 from collections.abc import Callable
-from enum import IntEnum, Flag, IntFlag
-from typing import Optional, Type
+from enum import IntEnum, IntFlag
+from typing import Optional
 import struct
 import threading
 import time
@@ -244,7 +243,7 @@ class LNCRate:
     def GetLNCRate(key) -> int:
         try:
             return LNCRate.lnc_rates[key]
-        except KeyError as e:
+        except KeyError:
             print("Error with LNC rate key.")
             return 0
 
@@ -1123,7 +1122,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["sysrep"]
         logger.debug(f"Attempting to set transport to {transport.upper()}")
         if not self._send_packet(pkt, event=event, timeout=timeout):
-            logger.warning(f"Did not receive SYSREPTRANSPORT in expected timeout.")
+            logger.warning("Did not receive SYSREPTRANSPORT in expected timeout.")
 
     def get_transport(self, force_refresh=False) -> int:
         if force_refresh:
@@ -1248,7 +1247,7 @@ class NSPDevice(DeviceInterface):
         if event is not None:
             res = event.wait(timeout=timeout)
             if not res:
-                logger.debug(f"timeout expired waiting for event")
+                logger.debug("timeout expired waiting for event")
                 return False
         return True
 
