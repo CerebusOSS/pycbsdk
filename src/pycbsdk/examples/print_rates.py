@@ -64,7 +64,7 @@ def main(
     loglevel: str = "debug",
     skip_startup: bool = False,
     update_interval: float = 1.0,
-    set_hoops: bool = False
+    set_hoops: bool = False,
 ):
     """
     Run the application:
