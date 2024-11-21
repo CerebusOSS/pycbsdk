@@ -1,13 +1,13 @@
 from ctypes import *
 from ctypes import _SimpleCData  # not included with *, supposed to be 'private'
 from enum import IntEnum
-from .. import config
 
 
 PKT_MAX_SIZE = 1024  # bytes
 MAX_UNITS = 5
 MAX_HOOPS = 4
 DEFAULT_TIMEOUT = 0.2
+
 
 # Class that uses the @print_pretty decorator
 # must provide a _fields_ list of tuples this is ("name", type)
@@ -238,7 +238,6 @@ class CBManualUnitMapping(Structure):
 
 @print_pretty
 class CBHoop(Structure):
-    
     # Not needed now, but may need to add this to other data classes that may need comparisions
     # Can probably make it cleaner with a decorator if needed throughout.
     def __eq__(self, other):
@@ -248,7 +247,7 @@ class CBHoop(Structure):
                     return False
             return True
         return False
-    
+
     _pack_ = 1
     _fields_ = [
         ("valid", c_uint16),  # 0=undefined, 1 for valid

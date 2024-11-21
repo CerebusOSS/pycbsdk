@@ -42,9 +42,9 @@ class DeviceInterface:
             _: [] for _ in CBChannelType
         }
         # Init config_callbacks as a defaultdict that will create an empty list on-the-fly for unseen keys.
-        self.config_callbacks: defaultdict[
-            CBPacketType, typing.List[CBPktCallBack]
-        ] = defaultdict(lambda: [])
+        self.config_callbacks: defaultdict[CBPacketType, typing.List[CBPktCallBack]] = (
+            defaultdict(lambda: [])
+        )
         self._params = params
         self.packet_factory = CBPacketFactory(protocol=self._params.protocol)
         self.pkts_received = 0

@@ -35,7 +35,7 @@ class CBPacketSysProtocolMonitor(CBPacketConfigFixed):
         (
             "sentpkts",
             c_uint32,
-        )  # Packets sent since last cbPKT_SYSPROTOCOLMONITOR (or 0 if timestamp=0);
+        ),  # Packets sent since last cbPKT_SYSPROTOCOLMONITOR (or 0 if timestamp=0);
         # the cbPKT_SYSPROTOCOLMONITOR packets are counted as well so this must
         # be equal to at least 1
     ]

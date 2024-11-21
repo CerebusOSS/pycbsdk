@@ -8,7 +8,7 @@ from .common import (
     CBFiltDesc,
     print_pretty,
     MAX_HOOPS,
-    MAX_UNITS
+    MAX_UNITS,
 )
 from .abstract import CBPacketConfigFixed
 from .header import CBPacketHeader
@@ -30,7 +30,6 @@ class CBPacketSysProtocolMonitor(CBPacketConfigFixed):
     @property
     def default_type(self):
         return CBPacketType.SYSPROTOCOLMONITOR
-
 
 
 @print_pretty
