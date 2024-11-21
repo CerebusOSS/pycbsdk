@@ -1,10 +1,18 @@
 import typing
 from ctypes import *
 import struct
+
 import numpy as np
 import numpy.typing
+
 from .. import config
-from .common import CBChannelType, CBPacketType, CBSpecialChan, CBManualUnitMapping, print_pretty
+from .common import (
+    CBChannelType,
+    CBPacketType,
+    CBSpecialChan,
+    CBManualUnitMapping,
+    print_pretty,
+)
 from .abstract import CBPacketVarDataNDArray, CBPacketVarLen, CBPacketConfigFixed
 
 if config.protocol is None:

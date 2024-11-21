@@ -24,16 +24,18 @@ class PacketHandlerThread(threading.Thread):
     and should use atomic operations only.
     """
 
-    def __init__(
-        self, receiver_queue: queue.SimpleQueue, device: DeviceInterface, **kwargs
-    ):
+    def __init__(self, device: DeviceInterface, **kwargs):
         super().__init__(**kwargs)
-        self._recv_q = receiver_queue
+        self._recv_q = queue.SimpleQueue()
         self._device = device
         self._continue = False
         self._packet_factory = CBPacketFactory(protocol=device._params.protocol)
         self._stop_event = threading.Event()
         self.daemon = True
+
+    @property
+    def receiver_queue(self) -> queue.SimpleQueue:
+        return self._recv_q
 
     def run(self) -> None:
         last_group_time = -1
@@ -117,6 +119,9 @@ class PacketHandlerThread(threading.Thread):
                     data, chid=chid, pkt_type=pkt_type, chantype=chantype
                 )
                 self.warn_unhandled(pkt)
+
+        del self._recv_q
+        self._recv_q = None
 
     def stop(self):
         self._stop_event.set()

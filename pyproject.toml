@@ -1,27 +1,42 @@
-[tool.poetry]
+[project]
 name = "pycbsdk"
-version = "0.1.4"
 description = "Pure Python interface to Blackrock Neurotech Cerebus devices"
-authors = ["Chadwick Boulay <chad@cbneurotech.com>"]
+authors = [
+  { name = "Chadwick Boulay", email = "chadwick.boulay@gmail.com" },
+]
 license = "MIT"
 readme = "README.md"
-packages = [
-  { include = "pycbsdk", from = "src" }
+requires-python = ">=3.9"
+dynamic = ["version"]
+dependencies = [
+    "numpy",
+    "aenum>=3.1.15",
+    "ifaddr>=0.2.0",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-numpy = "^1.26.4"
-aenum = "^3.1.15"
-ifaddr = "^0.2.0"
+[project.optional-dependencies]
+test = [
+    "pytest>=8.3.3",
+]
 
-[tool.poetry.group.dev.dependencies]
-typer = "^0.9.0"
-pytest = "^8.1.1"
+[project.scripts]
+pycbsdk-rates = "pycbsdk.examples.print_rates:main"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
-[tool.poetry.scripts]
-ezmsg-monitor = "pycbsdk.examples.print_rates:main"
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/pycbsdk/__version__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pycbsdk"]
+
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.6.8",
+    "typer>=0.12.5",
+]

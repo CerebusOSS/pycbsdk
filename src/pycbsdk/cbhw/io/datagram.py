@@ -61,7 +61,7 @@ class CerebusDatagramProtocol(asyncio.DatagramProtocol):
             self._recv_queue.put((pkt_time, chid, pkt_type, dlen, data))
 
     def error_received(self, exc: Exception) -> None:
-        logger.error("Error received: ", exc)
+        logger.error(f"Error received: {exc}")
 
     def connection_lost(self, exc: Exception) -> None:
         logger.debug("Data receiver connection closed.")
@@ -143,9 +143,16 @@ class CerebusDatagramThread(threading.Thread, CerebusCommInterface):
         )
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_DONTROUTE, True)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self._buff_size)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
         # sock.settimeout(10)
         # sock.setblocking(False)
-        sock.bind(self._recv_addr)
+        try:
+            sock.bind(self._recv_addr)
+        except OSError as e:
+            logger.error(
+                f"Cannot bind to {self._recv_addr}. Central may have exclusive access to the port on "
+                f"this machine. Error: {e}"
+            )
 
         loop = asyncio.get_event_loop()
         # Create a future that should only return when the UDP connection is lost

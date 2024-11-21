@@ -3,7 +3,6 @@ from ctypes import *
 import struct
 import numpy as np
 import numpy.typing
-from .. import config
 from .common import (
     CBPacketType,
     CBSpecialChan,

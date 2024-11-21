@@ -26,11 +26,10 @@ synchronization primitives should be used.
 import copy
 from ctypes import Structure, create_string_buffer
 import logging
-import queue
 import socket
 from collections.abc import Callable
-from enum import IntEnum, Flag, IntFlag
-from typing import Optional, Type
+from enum import IntEnum, IntFlag
+from typing import Optional
 import struct
 import threading
 import time
@@ -244,7 +243,7 @@ class LNCRate:
     def GetLNCRate(key) -> int:
         try:
             return LNCRate.lnc_rates[key]
-        except KeyError as e:
+        except KeyError:
             print("Error with LNC rate key.")
             return 0
 
@@ -286,9 +285,7 @@ class NSPDevice(DeviceInterface):
         self._monitor_state["time"] = 1
 
         # Placeholders for IO
-        self._pkt_handler_thread = None
         self._sender_queue = None
-        self._receiver_queue = None
         self._io_thread = None
 
         self._register_basic_callbacks()
@@ -316,6 +313,10 @@ class NSPDevice(DeviceInterface):
             socket.gethostbyname(self._params.inst_addr),
             self._params.inst_port,
         )
+
+        # Start the packet handler thread. We don't expect it to receive any packets until `.connect()` is called.
+        self._pkt_handler_thread = PacketHandlerThread(self)
+        self._pkt_handler_thread.start()
 
     @property
     def device_addr(self) -> tuple[str, int]:
@@ -1121,7 +1122,7 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["sysrep"]
         logger.debug(f"Attempting to set transport to {transport.upper()}")
         if not self._send_packet(pkt, event=event, timeout=timeout):
-            logger.warning(f"Did not receive SYSREPTRANSPORT in expected timeout.")
+            logger.warning("Did not receive SYSREPTRANSPORT in expected timeout.")
 
     def get_transport(self, force_refresh=False) -> int:
         if force_refresh:
@@ -1136,18 +1137,13 @@ class NSPDevice(DeviceInterface):
 
     # region IO
     def connect(self, startup_sequence: bool = True) -> int:
-        self._receiver_queue = queue.SimpleQueue()
-
-        self._pkt_handler_thread = PacketHandlerThread(self._receiver_queue, self)
         self._io_thread = CerebusDatagramThread(
-            self._receiver_queue,
+            self._pkt_handler_thread.receiver_queue,
             self._local_addr,
             self._device_addr,
             self._params.protocol,
             self._params.recv_bufsize,
         )
-
-        self._pkt_handler_thread.start()
         self._io_thread.start()
         # _io_thread.start() returns immediately but takes a few moments until its send_q is created.
         time.sleep(0.5)
@@ -1184,9 +1180,6 @@ class NSPDevice(DeviceInterface):
 
         self._io_thread.join()
         self._pkt_handler_thread.join()
-
-        del self._receiver_queue
-        self._receiver_queue = None
 
         logger.info("Disconnected successfully.")
 
@@ -1254,7 +1247,7 @@ class NSPDevice(DeviceInterface):
         if event is not None:
             res = event.wait(timeout=timeout)
             if not res:
-                logger.debug(f"timeout expired waiting for event")
+                logger.debug("timeout expired waiting for event")
                 return False
         return True
 
