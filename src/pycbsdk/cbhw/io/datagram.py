@@ -61,7 +61,7 @@ class CerebusDatagramProtocol(asyncio.DatagramProtocol):
             self._recv_queue.put((pkt_time, chid, pkt_type, dlen, data))
 
     def error_received(self, exc: Exception) -> None:
-        logger.error("Error received: ", exc)
+        logger.error(f"Error received: {exc}")
 
     def connection_lost(self, exc: Exception) -> None:
         logger.debug("Data receiver connection closed.")
