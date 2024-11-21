@@ -25,7 +25,7 @@ config = cbsdk.get_config(nsp_obj)
 print(config)
 ```
 
-You may also try the provided test script with `python -m pycbsdk.examples.print_rates` or via the shortcut: `pycbsdk_print_rates`.
+You may also try the provided test script with `python -m pycbsdk.examples.print_rates` or via the shortcut: `pycbsdk-rates`.
 
 ## Introduction
 
