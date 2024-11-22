@@ -170,6 +170,10 @@ def get_runlevel(device: NSPDevice) -> CBRunLevel:
     return device.get_runlevel()
 
 
+def get_monitor_state(device: NSPDevice) -> dict:
+    return device.get_monitor_state()
+
+
 def register_event_callback(
     device: NSPDevice, channel_type: CBChannelType, func: Callable[[Structure], None]
 ):

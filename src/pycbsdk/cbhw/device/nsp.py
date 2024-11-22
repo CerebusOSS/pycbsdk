@@ -1131,6 +1131,9 @@ class NSPDevice(DeviceInterface):
             self.set_transport("CHECK", True, timeout=0.5)
         return self._config["transport"]
 
+    def get_monitor_state(self) -> dict:
+        return self._monitor_state.copy()
+
     def reset(self) -> int:
         print("TODO: reset NSP proctime to 0")
         return 0
