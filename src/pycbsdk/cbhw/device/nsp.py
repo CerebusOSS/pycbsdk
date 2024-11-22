@@ -472,6 +472,7 @@ class NSPDevice(DeviceInterface):
         self._config["nplay"] = pkt
 
     def _handle_procmon(self, pkt):
+        arrival_time = time.time()
         update_interval = max(pkt.header.time - self._monitor_state["time"], 1)
         pkt_delta = self.pkts_received - self._monitor_state["pkts_received"]
 
@@ -492,6 +493,7 @@ class NSPDevice(DeviceInterface):
             "counter": pkt.counter if has_counter else -1,
             "time": pkt.header.time,
             "pkts_received": self.pkts_received,
+            "sys_time": arrival_time,
         }
 
     def _handle_log(self, pkt):
