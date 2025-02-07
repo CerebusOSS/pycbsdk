@@ -151,7 +151,7 @@ wheels = [
 
 [[package]]
 name = "pycbsdk"
-version = "0.1.4.dev51+g2bc26fc.d20241121"
+version = "0.2.2.dev0+g447d9b9.d20250207"
 source = { editable = "." }
 dependencies = [
     { name = "aenum" },
