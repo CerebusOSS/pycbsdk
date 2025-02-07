@@ -174,6 +174,12 @@ def get_monitor_state(device: NSPDevice) -> dict:
     return device.get_monitor_state()
 
 
+def set_comment(
+    device: NSPDevice, comment: str, timestamp: Optional[int] = None
+) -> int:
+    return device.send_comment(comment, timestamp)
+
+
 def register_event_callback(
     device: NSPDevice, channel_type: CBChannelType, func: Callable[[Structure], None]
 ):
@@ -220,3 +226,13 @@ def unregister_config_callback(
     device: NSPDevice, packet_type: CBPacketType, func: Callable[[Structure], None]
 ) -> int:
     return device.unregister_config_callback(packet_type, func)
+
+
+def register_comment_callback(device: NSPDevice, func: Callable[[Structure], None]):
+    register_config_callback(device, CBPacketType.COMMENTREP, func)
+
+
+def unregister_comment_callback(
+    device: NSPDevice, func: Callable[[Structure], None]
+) -> int:
+    return unregister_config_callback(device, CBPacketType.COMMENTREP, func)

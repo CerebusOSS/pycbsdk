@@ -354,6 +354,7 @@ class NSPDevice(DeviceInterface):
             CBPacketType.SYSPROTOCOLMONITOR, self._handle_procmon
         )
         self.register_config_callback(CBPacketType.LOGREP, self._handle_log)
+        self.register_config_callback(CBPacketType.COMMENTREP, self._handle_comment)
         # Register the _black_hole (do nothing) callback for packets we are aware of but do not handle yet
         self.register_config_callback(CBPacketType.SYSHEARTBEAT, self._black_hole)
         self.register_config_callback(CBPacketType.SS_MODELREP, self._black_hole)
@@ -500,6 +501,15 @@ class NSPDevice(DeviceInterface):
         log_lvls = {0: logging.INFO, 1: logging.CRITICAL, 5: logging.ERROR}
         log_lvl = log_lvls.get(pkt.mode, logging.INFO)
         logger.log(log_lvl, f"Log from {pkt.name}:\t{pkt.desc}")
+
+    def _handle_comment(self, pkt):
+        # Note: Though we might receive a comment in response to one we just sent,
+        #  we do not use events for comments because timing is not critical and
+        #  there is no need to wait for a response when firing off a comment.
+        if hasattr(pkt, "timeStarted"):
+            logger.debug(f"At {pkt.timeStarted}, received comment:\t{pkt.comment}")
+        else:
+            logger.debug(f"Received comment:\t{pkt.comment}")
 
     def _black_hole(self, pkt):
         _old = len(g_debug_unhandled_packets)
@@ -1133,6 +1143,19 @@ class NSPDevice(DeviceInterface):
 
     def get_monitor_state(self) -> dict:
         return self._monitor_state.copy()
+
+    def send_comment(self, comment: str, timestamp: Optional[int] = None):
+        pkt = self.packet_factory.make_packet(
+            None, chid=CBSpecialChan.CONFIGURATION, pkt_type=CBPacketType.COMMENTSET
+        )
+        # Property setter should handle converting Python string to C string.
+        pkt.comment = comment
+        if hasattr(pkt, "timeStarted"):
+            pkt.timeStarted = timestamp or self.last_time
+        # pkt.comment = bytes(create_string_buffer(comment.encode("utf-8"), 256))
+        logger.debug(f"Sending comment (timeStarted: {pkt.timeStarted}): {pkt.comment}")
+        self._send_packet(pkt)
+        return 0
 
     def reset(self) -> int:
         print("TODO: reset NSP proctime to 0")

@@ -89,9 +89,8 @@ class CBPacketComment(CBPacketVarLen):
         ("timeStarted", c_uint64),
         ("rgba", c_uint32),  # depends on flags (see flags above)
     ]
-    _array = (
-        c_char * 0
-    )()  # Supposed to be variable length, but seems like it is always padded out to 128.
+    _array = (c_char * 0)()
+    # Supposed to be variable length, but seems like it is always padded out to 128.
 
     @property
     def default_type(self):
@@ -107,9 +106,10 @@ class CBPacketComment(CBPacketVarLen):
 
     @property
     def comment(self) -> str:
-        # codec = {0: 'ANSI', 1: 'UTF16', 255: 'ANSI'}[self.charset]
+        # codec = {0: 'ANSI', 1: 'UTF16', 255: 'ANSI'}[self.info.charset]
         # ''.join([_.decode(codec) for _ in res[4:]]).rstrip('\x00')
-        return self._array.rstrip("\x00")  # TODO: Decode?
+        # return self._array.rstrip("\x00")  # TODO: Decode?
+        return self._array[: self.max_elements].decode("utf-8")
 
     @comment.setter
     def comment(self, incomment: str):
@@ -123,5 +123,6 @@ class CBPacketComment(CBPacketVarLen):
             )  # TODO: encode?
         else:
             self._array = (self._array._type_ * len(incomment))()
-            memmove(self._array, incomment, len(incomment))
+            # memmove(self._array, incomment, len(incomment))
+            self._array[: len(incomment)] = incomment.encode("utf-8")
         self._update_dlen()
