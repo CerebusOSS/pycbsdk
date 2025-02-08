@@ -25,7 +25,10 @@ config = cbsdk.get_config(nsp_obj)
 print(config)
 ```
 
-You may also try the provided test script with `python -m pycbsdk.examples.print_rates` or via the shortcut: `pycbsdk-rates`.
+You may also try one of the provided test scripts
+
+* `python -m pycbsdk.examples.print_rates` or via the entrypoint `pycbsdk-rates`.
+* `python -m pycbsdk.examples.comments`
 
 ## Introduction
 
@@ -36,6 +39,8 @@ You may also try the provided test script with `python -m pycbsdk.examples.print
 However, it's pretty useful as is! And so far it has been good-enough for some quick test scripts, and it even drops fewer packets than CereLink. So, please use it, and contribute! We are more than happy to see the API expand to support more features, or even to have an additional "pythonic" API.
 
 ## Design
+
+![Alt text](./docs/img/pycbsdk_design.svg)
 
 Upon initialization, the `NSPDevice` instance configures its sockets (but no connection yet), it allocates memory for its mirror of the device state, and it registers callbacks to monitor config state.
 
@@ -65,8 +70,6 @@ This and more should appear in the documentation at some point in the future...
 
 * This library takes exclusive control over the UDP socket on port 51002 and thus cannot be used with Central, nor any other instance of `pycbsdk`. You only get one instance of `pycbsdk` _or_ Central per machine.
   * [CereLink](https://github.com/CerebusOSS/CereLink)'s cerebus.cbpy uses shared memory and therefore can work in parallel to Central or other cbpy instances.
-* The API is still very sparse and limited in functionality.
-* For now, Python still has the GIL. This means that despite using threading, if your callback functions are slow and hold up the PacketHandlerThread, this could hold up datagram retrieval and ultimately cause packets to be dropped.
-  * Callbacks may enqueue the data for a longer-running `multiprocessing` process to handle.
-  * Switch to [No GIL Python](https://peps.python.org/pep-0703/) as soon as it is available.
-  * Use pycbsdk to prototype an application in a language that uses real parallelism.
+* The API is sparse but is filling out over time. Use the issue tracker to make requests for features that you need.
+* For now, our dependencies are not compatible with NoGIL Python 3.13. This means that despite using threading, if your callback functions are slow and hold up the PacketHandlerThread, this could hold up datagram retrieval and ultimately cause packets to be dropped.
+* Socket configuration is still finicky and platform-specific. On Windows you might need to supply the address of the local adapter pycbsdk is binding (e.g., `--client-addr 192.168.137.198`), but on MacOS you must bind `INADDR_ANY`, or `--client-addr 0.0.0.0`, which is the default in most cases and can be omitted.
