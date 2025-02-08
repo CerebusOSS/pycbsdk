@@ -77,8 +77,8 @@ def main(
 
     try:
         while True:
-            input("Press any key to begin entering comment...")
-            comment = input("Enter comment: ")
+            input("Press <enter> to start a new comment...")
+            comment = input("Input comment: ")
             ts = nsp_obj.last_time
             print(f"Sending comment {comment} with timestamp {ts}")
             cbsdk.set_comment(nsp_obj, comment, ts)
