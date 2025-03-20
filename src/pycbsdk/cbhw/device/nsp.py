@@ -987,7 +987,11 @@ class NSPDevice(DeviceInterface):
                 pkt, event=self._config_events["sysrep"], timeout=timeout
             ):
                 logger.debug("Did not receive final response to REQCONFIGALL.")
-            n_infos = len(self._config["channel_infos"])
+            # n_infos = len(self._config["channel_infos"])
+            n_infos = 0
+            for i in self._config['channel_types']:
+                if self._config['channel_types'][i] == CBChannelType.FrontEnd:
+                    n_infos += 1
             if self._config["proc_chans"] == 0 or n_infos != self._config["proc_chans"]:
                 logger.warning(
                     f"Received incomplete response to REQCONFIGALL "
