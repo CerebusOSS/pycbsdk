@@ -300,6 +300,8 @@ class NSPDevice(DeviceInterface):
             "dc_offset": self._configure_channel_dcoffset,
             "spkfilter": self._configure_channel_spkfilter,
             "spkthrlevel": self._configure_spk_threshold,
+            "amplrejneg": self._configure_spk_amplrejneg,
+            "amplrejpos": self._configure_spk_amplrejpos
         }
 
         # Receives broadcast UDP (or unicast targeting the adapter at client_addr).
@@ -419,8 +421,8 @@ class NSPDevice(DeviceInterface):
                 # self._config["channel_infos"][pkt.chan].union.a.moninst = pkt.moninst
                 # self._config["channel_infos"][pkt.chan].union.a.monchan = pkt.monchan
             elif pkt.header.type == CBPacketType.CHANREPSCALE:
-                self._config["channel_infos"][pkt.chan].scalein = pkt.scalein
-                self._config["channel_infos"][pkt.chan].scaleout = pkt.scaleout
+                self._config["channel_infos"][pkt.chan].scalin = pkt.scalin
+                self._config["channel_infos"][pkt.chan].scalout = pkt.scalout
             elif pkt.header.type == CBPacketType.CHANREPDINP:
                 # TODO: NOTE: Need extra check if this is for serial or digital?
                 self._config["channel_infos"][pkt.chan].dinpopts = pkt.dinpopts
@@ -796,6 +798,51 @@ class NSPDevice(DeviceInterface):
             else:
                 raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
 
+    def _configure_spk_amplrejneg(
+            self, chid: int, attr_value: int, timeout: float = 0
+    ):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.header.type = CBPacketType.CHANSETREJECTAMPLITUDE
+        pkt.spkopts &= ~CBAInpSpk.REJAMPL.value
+        # pkt.spkopts |= CBAInpSpk.REJAMPL.value if attr_value else 0
+        if attr_value:
+            pkt.spkopts |= CBAInpSpk.REJAMPL.value
+            pkt.amplrejneg = attr_value
+        else:
+            pkt.spkopts |= ~CBAInpSpk.REJAMPL.value
+            pkt.amplrejneg = -8191
+
+        timeout = 0.1
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+        self._send_packet(pkt=pkt, event=event, timeout=timeout)
+
+    def _configure_spk_amplrejpos(
+            self, chid: int, attr_value: int, timeout: float = 0
+    ):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.header.type = CBPacketType.CHANSETREJECTAMPLITUDE
+        # pkt.spkopts &= ~CBAInpSpk.REJAMPL.value
+        if attr_value:
+            pkt.spkopts |= CBAInpSpk.REJAMPL.value
+        # pkt.spkopts &= ~CBAInpSpk.REJAMPL.value
+        # pkt.spkopts |= CBAInpSpk.REJAMPL.value if attr_value else 0
+            pkt.amplrejpos = attr_value
+        else:
+            pkt.spkopts &= ~CBAInpSpk.REJAMPL.value
+            pkt.amplrejpos = 8191
+
+        timeout = 0.1
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+        self._send_packet(pkt=pkt, event=event, timeout=timeout)
+
+    def _configure_channel_disable_autothresh(
+            self, chid: int, attr_value: int, timeout: float = 0
+    ):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.header.type = CBPacketType.CHANSETAUTOTHRESHOLD
+        pkt.spkopts &= ~CBAInpSpk.THRAUTO.value
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+        self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
     def _configure_channel_analogout(
             self, chid: int, attr_value: int, timeout: float = 0.0
@@ -862,7 +909,7 @@ class NSPDevice(DeviceInterface):
                 raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
 
     def _configure_channel_enable_spike(
-        self, chid: int, attr_value: bool, timeout: float = 0
+        self, chid: int, attr_value: bool=True, timeout: float = 0
     ):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETSPK
@@ -914,6 +961,12 @@ class NSPDevice(DeviceInterface):
             self._configure_channel_autothreshold(chid, attr_value, timeout)
         elif attr_name.lower().startswith("hoops"):
             self._configure_channel_hoops(chid, attr_value, timeout)
+        elif attr_name.lower().startswith("amplrejneg"):
+            self._configure_spk_amplrejneg(chid, attr_value, timeout)
+        elif attr_name.lower().startswith("amplrejpos"):
+            self._configure_spk_amplrejpos(chid, attr_value, timeout)
+        elif attr_name.lower().startswith("disableautothresh"):
+            self._configure_channel_disable_autothresh(chid, attr_value, timeout)
         # self._config_events["chaninfo"].wait(timeout=0.02)
 
     def configure_all_channels_spike(
