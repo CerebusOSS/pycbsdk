@@ -301,7 +301,8 @@ class NSPDevice(DeviceInterface):
             "spkfilter": self._configure_channel_spkfilter,
             "spkthrlevel": self._configure_spk_threshold,
             "amplrejneg": self._configure_spk_amplrejneg,
-            "amplrejpos": self._configure_spk_amplrejpos
+            "amplrejpos": self._configure_spk_amplrejpos,
+            "threshold": self._configure_spk_threshold
         }
 
         # Receives broadcast UDP (or unicast targeting the adapter at client_addr).
@@ -835,15 +836,6 @@ class NSPDevice(DeviceInterface):
         event = self._config_events["chaninfo"] if timeout > 0 else None
         self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
-    def _configure_channel_disable_autothresh(
-            self, chid: int, attr_value: int, timeout: float = 0
-    ):
-        pkt = copy.copy(self._config["channel_infos"][chid])
-        pkt.header.type = CBPacketType.CHANSETAUTOTHRESHOLD
-        pkt.spkopts &= ~CBAInpSpk.THRAUTO.value
-        event = self._config_events["chaninfo"] if timeout > 0 else None
-        self._send_packet(pkt=pkt, event=event, timeout=timeout)
-
     def _configure_channel_analogout(
             self, chid: int, attr_value: int, timeout: float = 0.0
     ):
@@ -965,8 +957,8 @@ class NSPDevice(DeviceInterface):
             self._configure_spk_amplrejneg(chid, attr_value, timeout)
         elif attr_name.lower().startswith("amplrejpos"):
             self._configure_spk_amplrejpos(chid, attr_value, timeout)
-        elif attr_name.lower().startswith("disableautothresh"):
-            self._configure_channel_disable_autothresh(chid, attr_value, timeout)
+        elif attr_name.lower().startswith("threshold"):
+            self._configure_spk_threshold(chid, attr_value, timeout)
         # self._config_events["chaninfo"].wait(timeout=0.02)
 
     def configure_all_channels_spike(
