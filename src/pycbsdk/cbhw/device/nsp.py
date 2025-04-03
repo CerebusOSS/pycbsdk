@@ -767,6 +767,36 @@ class NSPDevice(DeviceInterface):
             enable=not not attr_value,
             timeout=timeout,
         )
+
+    def _configure_channel_refelecspk(
+        self, chid: int, attr_value: int, timeout: float = 0.0
+    ):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.header.type = CBPacketType.CHANSETAINP
+        pkt.ainpopts &= ~CBAnaInpOpts.refelec_mask
+        if attr_value != 0:
+            pkt.ainpopts |= CBAnaInpOpts.refelec_spk
+            pkt.refelecchan = attr_value
+        else:
+            pkt.refelecchan = 0
+        timeout = 0.1
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+        self._send_packet(pkt=pkt, event=event, timeout=timeout)
+
+    def _configure_channel_refeleclfpspk(
+        self, chid: int, attr_value: int, timeout: float = 0.0
+    ):
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.header.type = CBPacketType.CHANSETAINP
+        pkt.ainpopts &= ~CBAnaInpOpts.refelec_mask
+        if attr_value != 0:
+            pkt.ainpopts |= CBAnaInpOpts.refelec_lfpspk
+            pkt.refelecchan = attr_value
+        else:
+            pkt.refelecchan = 0
+        timeout = 0.1
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+        self._send_packet(pkt=pkt, event=event, timeout=timeout)
     
     def _configure_channel_spkfilter(
             self, chid: int, attr_value: int, timeout: float = 0.0
@@ -805,12 +835,10 @@ class NSPDevice(DeviceInterface):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETREJECTAMPLITUDE
         pkt.spkopts &= ~CBAInpSpk.REJAMPL.value
-        # pkt.spkopts |= CBAInpSpk.REJAMPL.value if attr_value else 0
         if attr_value:
             pkt.spkopts |= CBAInpSpk.REJAMPL.value
             pkt.amplrejneg = attr_value
         else:
-            pkt.spkopts |= ~CBAInpSpk.REJAMPL.value
             pkt.amplrejneg = -8191
 
         timeout = 0.1
@@ -822,14 +850,11 @@ class NSPDevice(DeviceInterface):
     ):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETREJECTAMPLITUDE
-        # pkt.spkopts &= ~CBAInpSpk.REJAMPL.value
+        pkt.spkopts &= ~CBAInpSpk.REJAMPL.value
         if attr_value:
             pkt.spkopts |= CBAInpSpk.REJAMPL.value
-        # pkt.spkopts &= ~CBAInpSpk.REJAMPL.value
-        # pkt.spkopts |= CBAInpSpk.REJAMPL.value if attr_value else 0
             pkt.amplrejpos = attr_value
         else:
-            pkt.spkopts &= ~CBAInpSpk.REJAMPL.value
             pkt.amplrejpos = 8191
 
         timeout = 0.1
@@ -900,8 +925,27 @@ class NSPDevice(DeviceInterface):
             else:
                 raise RuntimeError("Valid packet response NOT received, but packet contains expected values")
 
-    def _configure_channel_enable_spike(
+    def _reset_channel(
         self, chid: int, attr_value: bool=True, timeout: float = 0
+    ):
+        timeout = 0.1
+        pkt = copy.copy(self._config["channel_infos"][chid])
+        pkt.header.type = CBPacketType.CHANSETSPK
+        pkt.spkopts = 65793 # magic number, enables spike processing with hoops sorting, disables autothresh
+        pkt.spkfilter = 2 # 250 Hz HP
+        pkt.spkthrlevel = -255 # -63 uV
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+        self._send_packet(pkt=pkt, event=event, timeout=timeout)
+
+        pkt.header.type = CBPacketType.CHANSETAINP
+        pkt.ainpopts = 256  # magic number, clears LNC, raw, and refelec features. Enables AC coupling
+        pkt.smpgroup = 0    # no continuous data
+        pkt.smpfilter = 0   # no continuous filter
+        event = self._config_events["chaninfo"] if timeout > 0 else None
+        self._send_packet(pkt=pkt, event=event, timeout=timeout)
+
+    def _configure_channel_enable_spike(
+        self, chid: int, attr_value: bool, timeout: float = 0
     ):
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETSPK
@@ -959,6 +1003,12 @@ class NSPDevice(DeviceInterface):
             self._configure_spk_amplrejpos(chid, attr_value, timeout)
         elif attr_name.lower().startswith("threshold"):
             self._configure_spk_threshold(chid, attr_value, timeout)
+        elif attr_name.lower().startswith("refelecspk"):
+            self._configure_channel_refelecspk(chid, attr_value, timeout)
+        elif attr_name.lower().startswith("refeleclfpspk"):
+            self._configure_channel_refeleclfpspk(chid, attr_value, timeout)
+        elif attr_name.lower().startswith("reset"):
+            self._reset_channel(chid, attr_value, timeout)
         # self._config_events["chaninfo"].wait(timeout=0.02)
 
     def configure_all_channels_spike(
