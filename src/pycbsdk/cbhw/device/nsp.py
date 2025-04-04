@@ -931,14 +931,14 @@ class NSPDevice(DeviceInterface):
         timeout = 0.1
         pkt = copy.copy(self._config["channel_infos"][chid])
         pkt.header.type = CBPacketType.CHANSETSPK
-        pkt.spkopts = 65793 # magic number, enables spike processing with hoops sorting, disables autothresh
+        pkt.spkopts = CBAInpSpk.EXTRACT | CBAInpSpk.THRLEVEL | CBAInpSpk.HOOPSORT
         pkt.spkfilter = 2 # 250 Hz HP
         pkt.spkthrlevel = -255 # -63 uV
         event = self._config_events["chaninfo"] if timeout > 0 else None
         self._send_packet(pkt=pkt, event=event, timeout=timeout)
 
         pkt.header.type = CBPacketType.CHANSETAINP
-        pkt.ainpopts = 256  # magic number, clears LNC, raw, and refelec features. Enables AC coupling
+        pkt.ainpopts = CBAnaInpOpts.refelec_offsetcorrect
         pkt.smpgroup = 0    # no continuous data
         pkt.smpfilter = 0   # no continuous filter
         event = self._config_events["chaninfo"] if timeout > 0 else None
