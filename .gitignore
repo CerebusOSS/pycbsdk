@@ -161,3 +161,4 @@ cython_debug/
 # "I am become God." -Chad
 
 src/pycbsdk/__version__.py
+uv.lock
