@@ -1015,7 +1015,8 @@ class NSPDevice(DeviceInterface):
             # Clear out our existing config
             self._config["proc_chans"] = 0
             self._config["channel_infos"] = {}
-            self._config["sysfreq"] = None
+            # Do not clear sysfreq if we already have it as this cannot change.
+            self._config["sysfreq"] = self._config.get("sysfreq", None)
             time.sleep(0.1)
             pkt = self.packet_factory.make_packet(
                 None,
