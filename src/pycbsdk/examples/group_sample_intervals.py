@@ -12,17 +12,18 @@ logger = logging.getLogger(__name__)
 
 
 class DummyApp:
-    def __init__(self, duration=21.0, t_step=1 / 30_000):
+    def __init__(self, nchans: int, duration=21.0, t_step=1 / 30_000):
         n_samples = int(np.ceil(duration * 30_000))
+        self._nchans = nchans
         self._t_step = t_step
-        self._buffer = np.zeros((n_samples, 2), dtype=np.int16)
+        self._buffer = np.zeros((n_samples, nchans), dtype=np.int16)
         self._ts = np.zeros((n_samples,), dtype=np.int64)
         self._write_index = 0
         self._last_time = 0
 
     def handle_frame(self, pkt):
         if self._write_index < self._buffer.shape[0]:
-            self._buffer[self._write_index, :] = memoryview(pkt.data[:4])
+            self._buffer[self._write_index, :] = memoryview(pkt.data[:self._nchans])
             self._ts[self._write_index] = pkt.header.time
             self._write_index += 1
 
@@ -41,6 +42,7 @@ class DummyApp:
 def main(
     duration: float = 11.0,
     smpgroup: int = 6,
+    nchans: int = 2,
     inst_addr: str = "",
     inst_port: int = 51002,
     client_addr: str = "",
@@ -81,11 +83,12 @@ def main(
     for chtype in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]:
         cbsdk.set_all_channels_disable(nsp_obj, chtype)
 
-    # Enable channel 1 at smpgroup. For smpgroup < 5, this also updates the smpfilter.
-    _ = cbsdk.set_channel_config(nsp_obj, 1, "smpgroup", smpgroup)
+    # Enable channels 1 & 2 at smpgroup. For smpgroup < 5, this also updates the smpfilter.
+    for ch in range(1, nchans + 1):
+        _ = cbsdk.set_channel_config(nsp_obj, ch, "smpgroup", smpgroup)
 
     # Create a dummy app.
-    app = DummyApp(duration=duration, t_step=1 / config["sysfreq"])
+    app = DummyApp(nchans, duration=duration, t_step=1 / config["sysfreq"])
 
     time.sleep(2.0)
 
