@@ -488,6 +488,7 @@ class NSPDevice(DeviceInterface):
         prot_str = f"{vmaj}.{vmin}"
         logger.info(f"Protocol version {prot_str}")
         self._config["proc_chans"] = pkt.chancount
+        self._config["b_gemini"] = hasattr(pkt, "ident") and "gemini" in pkt.ident.lower()
         # config.protocol = prot_str  # Too late; we already loaded our factory if we got this far.
 
     def _handle_nplay(self, pkt):

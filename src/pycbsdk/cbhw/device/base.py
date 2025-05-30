@@ -30,6 +30,7 @@ class DeviceInterface:
             ),  # Filled in upon receiving device config.
             "proc_chans": 0,
             "instrument": -1,
+            "b_gemini": False,
             "channel_infos": {},
             "group_infos": {},
             "group_nchans": {},
