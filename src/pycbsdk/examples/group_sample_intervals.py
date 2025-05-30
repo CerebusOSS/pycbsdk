@@ -23,7 +23,7 @@ class DummyApp:
 
     def handle_frame(self, pkt):
         if self._write_index < self._buffer.shape[0]:
-            self._buffer[self._write_index, :] = memoryview(pkt.data[:self._nchans])
+            self._buffer[self._write_index, :] = memoryview(pkt.data[: self._nchans])
             self._ts[self._write_index] = pkt.header.time
             self._write_index += 1
 
@@ -35,7 +35,7 @@ class DummyApp:
             s_elapsed = ts_elapsed * self._t_step
             n_samps = np.sum(b_ts)
             print(
-                f"Collected {n_samps} samples in {s_elapsed} s\t({n_samps/s_elapsed:.2f} Hz)."
+                f"Collected {n_samps} samples in {s_elapsed} s\t({n_samps / s_elapsed:.2f} Hz)."
             )
 
 
@@ -83,12 +83,19 @@ def main(
     for chtype in [CBChannelType.FrontEnd, CBChannelType.AnalogIn]:
         cbsdk.set_all_channels_disable(nsp_obj, chtype)
 
-    # Enable channels 1 & 2 at smpgroup. For smpgroup < 5, this also updates the smpfilter.
+    # Enable first nchans at smpgroup. For smpgroup < 5, this also updates the smpfilter.
     for ch in range(1, nchans + 1):
         _ = cbsdk.set_channel_config(nsp_obj, ch, "smpgroup", smpgroup)
 
+    # Calculate the clock step (I hate this)
+    if inst_addr and int(inst_addr.split(".")[-1]) in [200, 201, 202, 203, 203]:
+        # Note: This misses Gemini NSP!
+        t_step = 1 / 1e9
+    else:
+        t_step = 1 / config["sysfreq"]
+
     # Create a dummy app.
-    app = DummyApp(nchans, duration=duration, t_step=1 / config["sysfreq"])
+    app = DummyApp(nchans, duration=duration, t_step=t_step)
 
     time.sleep(2.0)
 

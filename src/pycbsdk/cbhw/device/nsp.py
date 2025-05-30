@@ -346,6 +346,13 @@ class NSPDevice(DeviceInterface):
 
         self.register_config_callback(CBPacketType.CHANREPAINP, self._handle_chaninfo)
         self.register_config_callback(CBPacketType.CHANREPSPKTHR, self._handle_chaninfo)
+        self.register_config_callback(
+            CBPacketType.CHANREPNTRODEGROUP, self._handle_chaninfo
+        )
+        self.register_config_callback(CBPacketType.CHANREPDISP, self._handle_chaninfo)
+        self.register_config_callback(
+            CBPacketType.CHANREPUNITOVERRIDES, self._handle_chaninfo
+        )
 
         self.register_config_callback(CBPacketType.GROUPREP, self._handle_groupinfo)
         self.register_config_callback(CBPacketType.PROCREP, self._handle_procinfo)
@@ -397,8 +404,10 @@ class NSPDevice(DeviceInterface):
     def _handle_chaninfo(self, pkt):
         # If this config packet is limited in scope then it might have some garbage data in its out-of-scope payload.
         # We should update our config, but only the parts that this REP packet is scoped to.
-        if pkt.header.instrument != self._config["instrument"]:
-            # Gemini system returns channel info for all instruments.
+        if (pkt.header.instrument != self._config["instrument"]) or (
+            pkt.chan > self._config["proc_chans"]
+        ):
+            # Drop channels that do not belong to this instrument
             pass
         elif pkt.header.type in [CBPacketType.CHANREP]:
             # Full scope; overwrite our config.
@@ -430,8 +439,8 @@ class NSPDevice(DeviceInterface):
                 # self._config["channel_infos"][pkt.chan].union.a.moninst = pkt.moninst
                 # self._config["channel_infos"][pkt.chan].union.a.monchan = pkt.monchan
             elif pkt.header.type == CBPacketType.CHANREPSCALE:
-                self._config["channel_infos"][pkt.chan].scalein = pkt.scalein
-                self._config["channel_infos"][pkt.chan].scaleout = pkt.scaleout
+                self._config["channel_infos"][pkt.chan].scalin = pkt.scalin
+                self._config["channel_infos"][pkt.chan].scalout = pkt.scalout
             elif pkt.header.type == CBPacketType.CHANREPDINP:
                 # TODO: NOTE: Need extra check if this is for serial or digital?
                 self._config["channel_infos"][pkt.chan].dinpopts = pkt.dinpopts
@@ -443,14 +452,21 @@ class NSPDevice(DeviceInterface):
             elif pkt.header.type == CBPacketType.CHANREPLABEL:
                 self._config["channel_infos"][pkt.chan].label = pkt.label
                 self._config["channel_infos"][pkt.chan].userflags = pkt.userflags
-            elif pkt.header.type == CBPacketType.CHANSETSPKTHR:
-                # TODO: from CHANREPSPKTHR, .spkthrlevel
+            elif pkt.header.type in [
+                CBPacketType.CHANSETSPKTHR,
+                CBPacketType.CHANREPSPKTHR,
+            ]:
                 self._config["channel_infos"][pkt.chan].spkthrlevel = pkt.spkthrlevel
-
+            elif pkt.header.type == CBPacketType.CHANREPNTRODEGROUP:
+                # TODO: from use pkt.spkgroup
+                pass
+            elif pkt.header.type == CBPacketType.CHANREPDISP:
+                # TODO: Use .smpdispmin, .smpdispmax, .spkdispmax, .lncdispmax
+                pass
+            elif pkt.header.type == CBPacketType.CHANREPUNITOVERRIDES:
+                # TODO: Use .unitmapping
+                pass
             else:
-                # TODO: from CHANREPNTRODEGROUP, .spkgroup
-                # TODO: from CHANREPDISP, .smpdispmin, .smpdispmax, .spkdispmax, .lncdispmax
-                # TODO: from CHANREPUNITOVERRIDES, .unitmapping
                 pass
         # print(f"handled chaninfo {pkt.chan} of type {hex(pkt.header.type)}")
         self._config_events["chaninfo"].set()
@@ -479,6 +495,8 @@ class NSPDevice(DeviceInterface):
 
     def _handle_procmon(self, pkt):
         arrival_time = time.time()
+        # Note: There's about 0.57 msec from when procmon is sent to when it is received.
+        # so we could make sys_time = arrival_time - 570_000e-9
         update_interval = max(pkt.header.time - self._monitor_state["time"], 1)
         pkt_delta = self.pkts_received - self._monitor_state["pkts_received"]
 
@@ -493,7 +511,7 @@ class NSPDevice(DeviceInterface):
             f";\tcounter - {pkt.counter if has_counter else 'N/A'}"
             f";\tdelta - {pkt_delta}"
             f";\tsent - {pkt.sentpkts}"
-            f";\trate (pkt/samp) - {pkt_delta/update_interval}"
+            f";\trate (pkt/samp) - {pkt_delta / update_interval}"
         )
         self._monitor_state = {
             "counter": pkt.counter if has_counter else -1,

@@ -530,7 +530,7 @@ class CBPacketVideoTrack(CBPacketVarDataNDArray):
         # Convert coords from uint16 to half as many uint32
         # TODO: Use numpy from buffer
         return struct.unpack(
-            f"<{len(self.coords)//2}L",
+            f"<{len(self.coords) // 2}L",
             struct.pack(f"<{len(self.coords)}H", self._array),
         )
 
@@ -540,7 +540,7 @@ class CBPacketVideoTrack(CBPacketVarDataNDArray):
         assert n_elems <= (self.max_elements // 2)
         # TODO: Use numpy buffer
         self.coords = struct.unpack(
-            f"<{len(insizes)*2}H", struct.pack(f"<{len(insizes)}L", insizes)
+            f"<{len(insizes) * 2}H", struct.pack(f"<{len(insizes)}L", insizes)
         )
 
     @property
