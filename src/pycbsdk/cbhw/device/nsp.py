@@ -346,6 +346,9 @@ class NSPDevice(DeviceInterface):
 
         self.register_config_callback(CBPacketType.CHANREPAINP, self._handle_chaninfo)
         self.register_config_callback(CBPacketType.CHANREPSPKTHR, self._handle_chaninfo)
+        self.register_config_callback(CBPacketType.CHANREPNTRODEGROUP, self._handle_chaninfo)
+        self.register_config_callback(CBPacketType.CHANREPDISP, self._handle_chaninfo)
+        self.register_config_callback(CBPacketType.CHANREPUNITOVERRIDES, self._handle_chaninfo)
 
         self.register_config_callback(CBPacketType.GROUPREP, self._handle_groupinfo)
         self.register_config_callback(CBPacketType.PROCREP, self._handle_procinfo)
@@ -443,14 +446,18 @@ class NSPDevice(DeviceInterface):
             elif pkt.header.type == CBPacketType.CHANREPLABEL:
                 self._config["channel_infos"][pkt.chan].label = pkt.label
                 self._config["channel_infos"][pkt.chan].userflags = pkt.userflags
-            elif pkt.header.type == CBPacketType.CHANSETSPKTHR:
-                # TODO: from CHANREPSPKTHR, .spkthrlevel
+            elif pkt.header.type in [CBPacketType.CHANSETSPKTHR, CBPacketType.CHANREPSPKTHR]:
                 self._config["channel_infos"][pkt.chan].spkthrlevel = pkt.spkthrlevel
-
+            elif pkt.header.type == CBPacketType.CHANREPNTRODEGROUP:
+                # TODO: from use pkt.spkgroup
+                pass
+            elif pkt.header.type == CBPacketType.CHANREPDISP:
+                # TODO: Use .smpdispmin, .smpdispmax, .spkdispmax, .lncdispmax
+                pass
+            elif pkt.header.type == CBPacketType.CHANREPUNITOVERRIDES:
+                # TODO: Use .unitmapping
+                pass
             else:
-                # TODO: from CHANREPNTRODEGROUP, .spkgroup
-                # TODO: from CHANREPDISP, .smpdispmin, .smpdispmax, .spkdispmax, .lncdispmax
-                # TODO: from CHANREPUNITOVERRIDES, .unitmapping
                 pass
         # print(f"handled chaninfo {pkt.chan} of type {hex(pkt.header.type)}")
         self._config_events["chaninfo"].set()
