@@ -386,6 +386,7 @@ class NSPDevice(DeviceInterface):
         if b_general or pkt.header.type == CBPacketType.SYSREPRUNLEV:
             self._config["runlevel"] = CBRunLevel(pkt.runlevel)
             self._config["sysfreq"] = pkt.sysfreq
+            self._config["instrument"] = pkt.header.instrument
         self._config_events["sysrep"].set()
         if b_general or pkt.header.type == CBPacketType.SYSREPRUNLEV:
             if self._config["runlevel"] == CBRunLevel.STANDBY:
@@ -396,7 +397,10 @@ class NSPDevice(DeviceInterface):
     def _handle_chaninfo(self, pkt):
         # If this config packet is limited in scope then it might have some garbage data in its out-of-scope payload.
         # We should update our config, but only the parts that this REP packet is scoped to.
-        if pkt.header.type in [CBPacketType.CHANREP]:
+        if pkt.header.instrument != self._config["instrument"]:
+            # Gemini system returns channel info for all instruments.
+            pass
+        elif pkt.header.type in [CBPacketType.CHANREP]:
             # Full scope; overwrite our config.
             self._config["channel_infos"][pkt.chan] = copy.copy(pkt)
             self._config["channel_types"][pkt.chan] = get_chantype_from_chaninfo(pkt)
@@ -457,6 +461,7 @@ class NSPDevice(DeviceInterface):
         else:
             chan_list = set()
         self._config["group_infos"][pkt.group] = chan_list
+        self._config["group_nchans"][pkt.group] = len(chan_list)
 
     def _handle_configall(self, pkt):
         if pkt.header.dlen > 0:
@@ -1017,6 +1022,7 @@ class NSPDevice(DeviceInterface):
             self._config["channel_infos"] = {}
             # Do not clear sysfreq if we already have it as this cannot change.
             self._config["sysfreq"] = self._config.get("sysfreq", None)
+            # self._config["instrument"] = -1
             time.sleep(0.1)
             pkt = self.packet_factory.make_packet(
                 None,

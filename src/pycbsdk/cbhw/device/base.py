@@ -29,8 +29,10 @@ class DeviceInterface:
                 lambda: CBChannelType.Any
             ),  # Filled in upon receiving device config.
             "proc_chans": 0,
+            "instrument": -1,
             "channel_infos": {},
             "group_infos": {},
+            "group_nchans": {},
             "sysfreq": None,  # Should be 30_000 for legacy or 1e9 for Gemini PTP
         }
         # Init group_callbacks dict with an empty list for each supported smp grp (1-5:SMP; 6:RAW)

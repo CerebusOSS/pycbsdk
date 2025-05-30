@@ -82,11 +82,13 @@ class PacketHandlerThread(threading.Thread):
             b_debug_unknown = True  # If there are no callbacks and it's not a group or event packet, then debug.
 
             # See if we have any callbacks registered for this type of packet.
+            b_grp = False
             if chid & CBSpecialChan.CONFIGURATION:
                 callbacks = self._device.config_callbacks[pkt_type]
             elif chid == CBSpecialChan.GROUP:
                 # This is a sample group packet. The pkt_type is actually the sample group id (1-6)
                 if pkt_type in self._device.group_callbacks:
+                    b_grp = True
                     callbacks = self._device.group_callbacks[pkt_type]
                 else:
                     # Known bug https://blackrockengineering.atlassian.net/browse/CSCI-95
@@ -106,6 +108,12 @@ class PacketHandlerThread(threading.Thread):
                 pkt = self._packet_factory.make_packet(
                     data, chid=chid, pkt_type=pkt_type, chantype=chantype
                 )
+                if b_grp:
+                    # Note: pkt.data length is always a multiple of 4 bytes = 32 bits = 2 channels * 16 bits.
+                    n_chans = self._device.config["group_nchans"][pkt_type]
+                    if n_chans % 2 != 0:
+                        #  Odd number of channels enabled then we have an extra 16 bits of data.
+                        pkt.data = pkt.data[:n_chans]
                 # Between the time the callbacks are grabbed above and the time we actually call them,
                 #  it's possible for the client to unregister the callback.
                 # Thus it's very important that a callback is unregistered and some time is allowed to pass
