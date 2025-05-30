@@ -430,8 +430,8 @@ class NSPDevice(DeviceInterface):
                 # self._config["channel_infos"][pkt.chan].union.a.moninst = pkt.moninst
                 # self._config["channel_infos"][pkt.chan].union.a.monchan = pkt.monchan
             elif pkt.header.type == CBPacketType.CHANREPSCALE:
-                self._config["channel_infos"][pkt.chan].scalein = pkt.scalein
-                self._config["channel_infos"][pkt.chan].scaleout = pkt.scaleout
+                self._config["channel_infos"][pkt.chan].scalin = pkt.scalin
+                self._config["channel_infos"][pkt.chan].scalout = pkt.scalout
             elif pkt.header.type == CBPacketType.CHANREPDINP:
                 # TODO: NOTE: Need extra check if this is for serial or digital?
                 self._config["channel_infos"][pkt.chan].dinpopts = pkt.dinpopts
