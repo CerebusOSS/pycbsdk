@@ -457,6 +457,7 @@ class NSPDevice(DeviceInterface):
         else:
             chan_list = set()
         self._config["group_infos"][pkt.group] = chan_list
+        self._config["group_nchans"][pkt.group] = len(chan_list)
 
     def _handle_configall(self, pkt):
         if pkt.header.dlen > 0:
