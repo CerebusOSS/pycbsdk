@@ -400,8 +400,8 @@ class NSPDevice(DeviceInterface):
     def _handle_chaninfo(self, pkt):
         # If this config packet is limited in scope then it might have some garbage data in its out-of-scope payload.
         # We should update our config, but only the parts that this REP packet is scoped to.
-        if pkt.header.instrument != self._config["instrument"]:
-            # Gemini system returns channel info for all instruments.
+        if (pkt.header.instrument != self._config["instrument"]) or (pkt.chan > self._config["proc_chans"]):
+            # Drop channels that do not belong to this instrument
             pass
         elif pkt.header.type in [CBPacketType.CHANREP]:
             # Full scope; overwrite our config.
@@ -486,6 +486,8 @@ class NSPDevice(DeviceInterface):
 
     def _handle_procmon(self, pkt):
         arrival_time = time.time()
+        # Note: There's about 0.57 msec from when procmon is sent to when it is received.
+        # so we could make sys_time = arrival_time - 570_000e-9
         update_interval = max(pkt.header.time - self._monitor_state["time"], 1)
         pkt_delta = self.pkts_received - self._monitor_state["pkts_received"]
 
