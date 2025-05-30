@@ -177,14 +177,8 @@ def main(
     ]
     n_chans = sum(b_spk)
 
-    # Calculate the clock step (I hate this)
-    if inst_addr and int(inst_addr.split(".")[-1]) in [200, 201, 202, 203, 203]:
-        # Note: This misses Gemini NSP!
-        t_step = 1 / 1e9
-    else:
-        t_step = 1 / config["sysfreq"]
-
     # Create the dummy app.
+    t_step = 1 / (1e9 if config["b_gemini"] else config["sysfreq"])
     app = DummyApp(n_chans, history=update_interval, tstep=t_step)
     # Register callbacks to update the app's state when appropriate packets are received.
     _ = cbsdk.register_spk_callback(nsp_obj, app.update_state)

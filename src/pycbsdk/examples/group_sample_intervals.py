@@ -87,14 +87,8 @@ def main(
     for ch in range(1, nchans + 1):
         _ = cbsdk.set_channel_config(nsp_obj, ch, "smpgroup", smpgroup)
 
-    # Calculate the clock step (I hate this)
-    if inst_addr and int(inst_addr.split(".")[-1]) in [200, 201, 202, 203, 203]:
-        # Note: This misses Gemini NSP!
-        t_step = 1 / 1e9
-    else:
-        t_step = 1 / config["sysfreq"]
-
     # Create a dummy app.
+    t_step = 1 / (1e9 if config["b_gemini"] else config["sysfreq"])
     app = DummyApp(nchans, duration=duration, t_step=t_step)
 
     time.sleep(2.0)
