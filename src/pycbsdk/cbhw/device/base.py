@@ -29,6 +29,7 @@ class DeviceInterface:
                 lambda: CBChannelType.Any
             ),  # Filled in upon receiving device config.
             "proc_chans": 0,
+            "instrument": -1,
             "channel_infos": {},
             "group_infos": {},
             "group_nchans": {},
