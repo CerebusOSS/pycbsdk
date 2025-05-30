@@ -346,9 +346,13 @@ class NSPDevice(DeviceInterface):
 
         self.register_config_callback(CBPacketType.CHANREPAINP, self._handle_chaninfo)
         self.register_config_callback(CBPacketType.CHANREPSPKTHR, self._handle_chaninfo)
-        self.register_config_callback(CBPacketType.CHANREPNTRODEGROUP, self._handle_chaninfo)
+        self.register_config_callback(
+            CBPacketType.CHANREPNTRODEGROUP, self._handle_chaninfo
+        )
         self.register_config_callback(CBPacketType.CHANREPDISP, self._handle_chaninfo)
-        self.register_config_callback(CBPacketType.CHANREPUNITOVERRIDES, self._handle_chaninfo)
+        self.register_config_callback(
+            CBPacketType.CHANREPUNITOVERRIDES, self._handle_chaninfo
+        )
 
         self.register_config_callback(CBPacketType.GROUPREP, self._handle_groupinfo)
         self.register_config_callback(CBPacketType.PROCREP, self._handle_procinfo)
@@ -400,7 +404,9 @@ class NSPDevice(DeviceInterface):
     def _handle_chaninfo(self, pkt):
         # If this config packet is limited in scope then it might have some garbage data in its out-of-scope payload.
         # We should update our config, but only the parts that this REP packet is scoped to.
-        if (pkt.header.instrument != self._config["instrument"]) or (pkt.chan > self._config["proc_chans"]):
+        if (pkt.header.instrument != self._config["instrument"]) or (
+            pkt.chan > self._config["proc_chans"]
+        ):
             # Drop channels that do not belong to this instrument
             pass
         elif pkt.header.type in [CBPacketType.CHANREP]:
@@ -446,7 +452,10 @@ class NSPDevice(DeviceInterface):
             elif pkt.header.type == CBPacketType.CHANREPLABEL:
                 self._config["channel_infos"][pkt.chan].label = pkt.label
                 self._config["channel_infos"][pkt.chan].userflags = pkt.userflags
-            elif pkt.header.type in [CBPacketType.CHANSETSPKTHR, CBPacketType.CHANREPSPKTHR]:
+            elif pkt.header.type in [
+                CBPacketType.CHANSETSPKTHR,
+                CBPacketType.CHANREPSPKTHR,
+            ]:
                 self._config["channel_infos"][pkt.chan].spkthrlevel = pkt.spkthrlevel
             elif pkt.header.type == CBPacketType.CHANREPNTRODEGROUP:
                 # TODO: from use pkt.spkgroup
@@ -502,7 +511,7 @@ class NSPDevice(DeviceInterface):
             f";\tcounter - {pkt.counter if has_counter else 'N/A'}"
             f";\tdelta - {pkt_delta}"
             f";\tsent - {pkt.sentpkts}"
-            f";\trate (pkt/samp) - {pkt_delta/update_interval}"
+            f";\trate (pkt/samp) - {pkt_delta / update_interval}"
         )
         self._monitor_state = {
             "counter": pkt.counter if has_counter else -1,

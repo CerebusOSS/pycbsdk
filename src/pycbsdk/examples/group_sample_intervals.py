@@ -23,7 +23,7 @@ class DummyApp:
 
     def handle_frame(self, pkt):
         if self._write_index < self._buffer.shape[0]:
-            self._buffer[self._write_index, :] = memoryview(pkt.data[:self._nchans])
+            self._buffer[self._write_index, :] = memoryview(pkt.data[: self._nchans])
             self._ts[self._write_index] = pkt.header.time
             self._write_index += 1
 
@@ -35,7 +35,7 @@ class DummyApp:
             s_elapsed = ts_elapsed * self._t_step
             n_samps = np.sum(b_ts)
             print(
-                f"Collected {n_samps} samples in {s_elapsed} s\t({n_samps/s_elapsed:.2f} Hz)."
+                f"Collected {n_samps} samples in {s_elapsed} s\t({n_samps / s_elapsed:.2f} Hz)."
             )
 
 
