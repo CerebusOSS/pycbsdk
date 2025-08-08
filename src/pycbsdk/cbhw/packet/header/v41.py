@@ -1,4 +1,5 @@
 from ctypes import *
+from ..abstract import classproperty
 from ..common import print_pretty
 
 
@@ -17,7 +18,6 @@ class CBPacketHeader(Structure):
         ("reserved", c_uint8),  # Changed in this version; used to be 2 * c_uint8
     ]
 
-    @classmethod
-    @property
+    @classproperty
     def HEADER_FORMAT(cls):
         return "<QHHHBB"

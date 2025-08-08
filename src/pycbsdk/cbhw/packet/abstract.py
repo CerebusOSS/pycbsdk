@@ -2,6 +2,15 @@ from abc import abstractmethod
 from ctypes import *
 import struct
 import numpy as np
+
+
+class classproperty(object):
+    def __init__(self, f):
+        self.f = f
+
+    def __get__(self, obj, owner):
+        return self.f(owner)
+
 import numpy.typing
 from .common import (
     CBPacketType,
