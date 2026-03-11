@@ -32,6 +32,7 @@ class PacketHandlerThread(threading.Thread):
         self._packet_factory = CBPacketFactory(protocol=device._params.protocol)
         self._stop_event = threading.Event()
         self.daemon = True
+        self._last_group_ts = {1: -1, 2: -1, 3: -1, 4: -1, 5: -1, 6: -1}
 
     @property
     def receiver_queue(self) -> queue.SimpleQueue:
@@ -61,7 +62,7 @@ class PacketHandlerThread(threading.Thread):
             elif (
                 chid == CBSpecialChan.GROUP
                 and pkt_type == 6
-                and pkt_time < last_group_time
+                and pkt_time <= last_group_time
             ):
                 logger.warning(
                     f"Packets out of order. "
