@@ -1,4 +1,17 @@
-[![PyPI version](https://badge.fury.io/py/pycbsdk.svg)](https://badge.fury.io/py/pycbsdk)
+> [!CAUTION]
+
+**This package is deprecated and archived.** It has been replaced by a new CFFI-based `pycbsdk` distributed as part of [CereLink](https://github.com/CerebusOSS/CereLink).
+
+**To install the replacement:** `pip install pycbsdk` (the PyPI package now points to the new version)
+
+**To install the last release of this (old) package:**
+```
+pip install pycbsdk==0.4.1
+```
+or install directly from this archived repo:
+```
+pip install git+https://github.com/CerebusOSS/pycbsdk.git@v0.4.1
+```
 
 # pycbsdk
 
